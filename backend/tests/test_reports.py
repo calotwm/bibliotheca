@@ -325,3 +325,52 @@ async def test_editorial_report_includes_empty_editorials(auth_headers, session,
 async def test_editorial_report_requires_auth(client):
     response = await client.get("/api/reports/editorial")
     assert response.status_code == 401
+
+
+async def test_dashboard_shape(auth_headers, session, client):
+    book = await _seed_book(session, price="10.00", stock=8)
+    await _seed_sale(session, book, quantity=1)
+
+    response = await client.get("/api/dashboard", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_books"] == 1
+    assert data["total_units"] == 7
+    assert data["stock_value"] == "70.00"
+    assert data["today_sales"] == {"count": 1, "revenue": "10.00"}
+    assert data["out_of_stock_count"] == 0
+    assert len(data["low_stock"]) == 0
+    assert len(data["recent_sales"]) == 1
+    assert data["recent_sales"][0]["sale_number"] == 1
+    assert data["recent_sales"][0]["item_count"] == 1
+
+
+async def test_dashboard_low_stock_list_and_out_of_stock(auth_headers, session, client):
+    await _seed_book(session, title="Out", stock=0)
+    await _seed_book(session, title="Low1", stock=2)
+    await _seed_book(session, title="Low2", stock=5)
+    await _seed_book(session, title="Fine", stock=10)
+
+    response = await client.get("/api/dashboard", headers=auth_headers)
+    data = response.json()
+    assert data["out_of_stock_count"] == 1
+    titles = [item["title"] for item in data["low_stock"]]
+    assert titles == ["Low1", "Low2"]
+    assert all(item["stock_status"] == "Low" for item in data["low_stock"])
+    assert data["low_stock"][0]["stock"] == 2
+
+
+async def test_dashboard_recent_sales_limited_to_10(auth_headers, session, client):
+    book = await _seed_book(session, stock=100)
+    for _ in range(12):
+        await _seed_sale(session, book, quantity=1)
+
+    response = await client.get("/api/dashboard", headers=auth_headers)
+    data = response.json()
+    assert len(data["recent_sales"]) == 10
+    assert data["today_sales"]["count"] == 12
+
+
+async def test_dashboard_requires_auth(client):
+    response = await client.get("/api/dashboard")
+    assert response.status_code == 401

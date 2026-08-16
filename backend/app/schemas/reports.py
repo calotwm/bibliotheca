@@ -60,3 +60,38 @@ class EditorialMetric(BaseModel):
     sales: int
     units: int
     revenue: Decimal
+
+
+class TodaySales(BaseModel):
+    count: int
+    revenue: Decimal
+
+
+class LowStockItem(BaseModel):
+    book_id: int
+    title: str
+    author: str
+    editorial: str
+    stock: int
+    stock_status: str
+
+
+class RecentSaleRead(BaseModel):
+    id: int
+    sale_number: int
+    date: datetime
+    total: Decimal
+    payment_method: str | None = None
+    customer_name: str | None = None
+    created_by: int | None = None
+    item_count: int
+
+
+class DashboardRead(BaseModel):
+    total_books: int
+    total_units: int
+    stock_value: Decimal
+    today_sales: TodaySales
+    low_stock: list[LowStockItem] = []
+    out_of_stock_count: int
+    recent_sales: list[RecentSaleRead] = []
