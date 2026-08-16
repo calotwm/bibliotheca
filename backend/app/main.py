@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import get_settings
 from .db import SessionLocal
 from .models import User
-from .routers import auth, books, categories
+from .routers import auth, books, categories, sales
 from .routers.categories import seed_categories
 from .security.cors import parse_allowed_origins
 from .security.limiter import limiter
@@ -107,6 +107,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(categories.router)
     app.include_router(books.router)
+    app.include_router(sales.router)
 
     _mount_spa_if_built(app)
     return app
