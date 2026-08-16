@@ -9,6 +9,10 @@ os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost
 os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "admin")
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./bibliotheca.db")
+os.environ.setdefault("BUSINESS_NAME", "Librería El Estante")
+os.environ.setdefault("BUSINESS_CUIT", "30-12345678-9")
+os.environ.setdefault("BUSINESS_ADDRESS", "Av. Corrientes 1234, CABA")
+os.environ.setdefault("BUSINESS_CONDITION", "Responsable Inscripto")
 
 import pytest
 from httpx import ASGITransport, AsyncClient
