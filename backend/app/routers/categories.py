@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
 from ..db import get_session
+from ..excel_import.normalizer import DEFAULT_CATEGORIES
 from ..models import Category, User
 from ..schemas.category import CategoryCreate, CategoryRead
 from ..security.deps import require_admin, require_user
@@ -17,16 +18,6 @@ from ..services.audit import log_audit
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
 _settings = get_settings()
-
-# Exact Spanish names from the Excel catalog (REQ-CAT-2 / REQ-IMP-1).
-DEFAULT_CATEGORIES = [
-    "Novela",
-    "Cuentos",
-    "No Ficción",
-    "Poesía",
-    "Infantil y Juvenil",
-    "OPORTUNIDADES",
-]
 
 
 async def seed_categories(session: AsyncSession) -> None:
