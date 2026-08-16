@@ -18,7 +18,9 @@ from ..config import get_settings
 from ..db import get_session
 from ..models import Book, Category, Sale, SaleItem, User
 from ..schemas.reports import (
+    CategoryMetric,
     DaySummary,
+    EditorialMetric,
     InventoryReport,
     SalesGroupSummary,
     SalesReport,
@@ -236,3 +238,70 @@ async def inventory_report(
         threshold=threshold,
         category_id=category_id,
     )
+
+
+@router.get("/category", response_model=list[CategoryMetric])
+@limiter.limit(_settings.rate_limit_api)
+async def category_report(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_user)],
+) -> list[CategoryMetric]:
+    """Revenue and units by category (categories with no sales show zeros)."""
+    query = (
+        select(
+            Category.id,
+            Category.name,
+            func.count(func.distinct(SaleItem.sale_id)),
+            func.coalesce(func.sum(SaleItem.quantity), 0),
+            func.coalesce(func.sum(SaleItem.subtotal), 0),
+        )
+        .outerjoin(Book, Book.category_id == Category.id)
+        .outerjoin(SaleItem, SaleItem.book_id == Book.id)
+        .group_by(Category.id, Category.name)
+        .order_by(
+            func.coalesce(func.sum(SaleItem.subtotal), 0).desc(), Category.name
+        )
+    )
+    rows = (await session.execute(query)).all()
+    return [
+        CategoryMetric(
+            category_id=row[0],
+            category=row[1],
+            sales=row[2],
+            units=row[3],
+            revenue=_money(row[4]),
+        )
+        for row in rows
+    ]
+
+
+@router.get("/editorial", response_model=list[EditorialMetric])
+@limiter.limit(_settings.rate_limit_api)
+async def editorial_report(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_user)],
+) -> list[EditorialMetric]:
+    """Revenue and units by editorial (editorials with no sales show zeros)."""
+    query = (
+        select(
+            Book.editorial,
+            func.count(func.distinct(SaleItem.sale_id)),
+            func.coalesce(func.sum(SaleItem.quantity), 0),
+            func.coalesce(func.sum(SaleItem.subtotal), 0),
+        )
+        .select_from(Book)
+        .outerjoin(SaleItem, SaleItem.book_id == Book.id)
+        .group_by(Book.editorial)
+        .order_by(
+            func.coalesce(func.sum(SaleItem.subtotal), 0).desc(), Book.editorial
+        )
+    )
+    rows = (await session.execute(query)).all()
+    return [
+        EditorialMetric(
+            editorial=row[0], sales=row[1], units=row[2], revenue=_money(row[3])
+        )
+        for row in rows
+    ]

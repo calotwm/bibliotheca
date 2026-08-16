@@ -45,3 +45,18 @@ class InventoryReport(BaseModel):
     status_counts: dict[str, int]
     threshold: int
     category_id: int | None = None
+
+
+class CategoryMetric(BaseModel):
+    category_id: int
+    category: str
+    sales: int
+    units: int
+    revenue: Decimal
+
+
+class EditorialMetric(BaseModel):
+    editorial: str
+    sales: int
+    units: int
+    revenue: Decimal

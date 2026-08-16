@@ -252,3 +252,76 @@ async def test_inventory_category_filter(auth_headers, session, client):
 async def test_inventory_requires_auth(client):
     response = await client.get("/api/reports/inventory")
     assert response.status_code == 401
+
+
+async def test_category_report_revenue_and_units(auth_headers, session, client):
+    novela = await _seed_book(
+        session, title="Rayuela", category="Novela", price="10.00", stock=20
+    )
+    poesia = await _seed_book(
+        session, title="Odas", author="Pablo Neruda", category="Poesía",
+        price="20.00", stock=20,
+    )
+    await _seed_sale(session, novela, quantity=2)
+    await _seed_sale(session, poesia, quantity=1)
+
+    response = await client.get("/api/reports/category", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    by_name = {item["category"]: item for item in data}
+    assert by_name["Novela"]["units"] == 2
+    assert by_name["Novela"]["revenue"] == "20.00"
+    assert by_name["Novela"]["sales"] == 1
+    assert by_name["Poesía"]["units"] == 1
+    assert by_name["Poesía"]["revenue"] == "20.00"
+
+
+async def test_category_report_includes_empty_categories(auth_headers, session, client):
+    await _seed_book(session, title="Rayuela", category="Novela", price="10.00", stock=5)
+    await _category(session, "Poesía")
+
+    response = await client.get("/api/reports/category", headers=auth_headers)
+    data = response.json()
+    by_name = {item["category"]: item for item in data}
+    assert by_name["Poesía"]["units"] == 0
+    assert by_name["Poesía"]["revenue"] == "0.00"
+    assert by_name["Poesía"]["sales"] == 0
+
+
+async def test_category_report_requires_auth(client):
+    response = await client.get("/api/reports/category")
+    assert response.status_code == 401
+
+
+async def test_editorial_report_revenue_and_units(auth_headers, session, client):
+    s1 = await _seed_book(session, title="A", editorial="E1", price="10.00", stock=20)
+    s2 = await _seed_book(session, title="B", author="Pablo Neruda",
+                          editorial="E2", price="5.00", stock=20)
+    await _seed_sale(session, s1, quantity=3)
+    await _seed_sale(session, s2, quantity=1)
+
+    response = await client.get("/api/reports/editorial", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    by_ed = {item["editorial"]: item for item in data}
+    assert by_ed["E1"]["units"] == 3
+    assert by_ed["E1"]["revenue"] == "30.00"
+    assert by_ed["E2"]["units"] == 1
+    assert by_ed["E2"]["revenue"] == "5.00"
+
+
+async def test_editorial_report_includes_empty_editorials(auth_headers, session, client):
+    await _seed_book(session, title="A", editorial="E1", price="10.00", stock=5)
+    await _seed_book(session, title="B", author="Pablo Neruda", editorial="E2",
+                     price="10.00", stock=5)
+
+    response = await client.get("/api/reports/editorial", headers=auth_headers)
+    data = response.json()
+    by_ed = {item["editorial"]: item for item in data}
+    assert by_ed["E2"]["units"] == 0
+    assert by_ed["E2"]["revenue"] == "0.00"
+
+
+async def test_editorial_report_requires_auth(client):
+    response = await client.get("/api/reports/editorial")
+    assert response.status_code == 401
