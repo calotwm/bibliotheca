@@ -1,16 +1,6 @@
 """Tests for the FastAPI app entrypoint, health endpoint, and CORS wiring."""
 
-import pytest
-from httpx import ASGITransport, AsyncClient
-
 from app.main import app
-
-
-@pytest.fixture
-async def client():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client
 
 
 async def test_health_returns_200(client):
