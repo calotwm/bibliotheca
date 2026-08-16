@@ -10,7 +10,8 @@ non-fiscal PDF invoices.
 - **Backend**: FastAPI + SQLAlchemy 2.0 async — PostgreSQL (`asyncpg`) in
   production, SQLite (`aiosqlite`) for tests/dev — with Alembic async
   migrations.
-- **Frontend**: React 19 + Vite + TypeScript + Tailwind (landed in a later slice).
+- **Frontend**: React 19 + Vite + TypeScript + Tailwind CSS v4, TanStack Query
+  for server state, React Router 7, vitest + React Testing Library.
 
 ## Repository layout
 
@@ -19,7 +20,9 @@ backend/
   app/       # FastAPI application (config, db, models, routers, services)
   alembic/   # async migrations
   tests/     # pytest suite (pytest-asyncio + httpx)
-frontend/    # React SPA (later slice)
+frontend/
+  src/       # React SPA (auth, api hooks, components, pages)
+  tests      # vitest suite (@testing-library/react)
 ```
 
 ## Backend setup
@@ -56,4 +59,39 @@ Run migrations:
 
 ```powershell
 py -m alembic upgrade head
+```
+
+### Serving the built SPA
+
+When `frontend/dist` exists (a fresh `npm run build`), the backend serves it
+directly: `/api/**` and `/health` keep priority, static assets are served from
+`frontend/dist/assets`, and any other GET falls back to `index.html` so
+client-side routes (e.g. `/inventario`) resolve to the SPA. Without a build the
+backend starts fine and serves only the API (fresh-clone safe).
+
+## Frontend setup
+
+Requires Node 22+ and npm 10+.
+
+```powershell
+cd frontend
+npm install
+```
+
+Run the dev server (proxies `/api` → `http://localhost:8000`):
+
+```powershell
+npm run dev
+```
+
+Build the production bundle (typecheck with `tsc -b`, then `vite build`):
+
+```powershell
+npm run build
+```
+
+Run the tests:
+
+```powershell
+npm run test
 ```

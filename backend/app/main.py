@@ -7,9 +7,9 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import select
@@ -75,19 +75,39 @@ def _rate_limit_exceeded_handler(
     return response
 
 
-def _mount_spa_if_built(app: FastAPI) -> None:
-    """Mount the built SPA only if ``frontend/dist/assets`` exists.
+def _mount_spa_if_built(app: FastAPI, dist_dir: Path | None = None) -> None:
+    """Serve the built SPA with an ``index.html`` fallback.
 
-    Fresh-clone guard: a checkout without a frontend build must not crash the
-    backend on startup (lubricentro lesson).
+    Fresh-clone guard: the mount only happens when a real build exists
+    (``frontend/dist/assets`` present), so a checkout without a frontend build
+    must not crash the backend on startup (lubricentro lesson).
+
+    ``/api/**`` and ``/health`` are registered before the SPA routes, so they
+    keep priority. Every other GET falls back to ``index.html`` so client-side
+    routes (``/inventario``, ``/ventas``, ...) resolve to the SPA instead of
+    404ing. Unknown ``/api/**`` paths keep API semantics (404), never a page.
     """
-    dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    if dist_dir is None:
+        dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
     assets_dir = dist_dir / "assets"
-    if dist_dir.is_dir() and assets_dir.is_dir():
-        app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="spa")
+    index_file = dist_dir / "index.html"
+    if dist_dir.is_dir() and assets_dir.is_dir() and index_file.is_file():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(assets_dir)),
+            name="spa-assets",
+        )
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def spa_fallback(full_path: str) -> FileResponse:
+            if full_path == "health" or full_path.startswith("api/"):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Not found"
+                )
+            return FileResponse(str(index_file))
 
 
-def create_app() -> FastAPI:
+def create_app(spa_dist: Path | None = None) -> FastAPI:
     app = FastAPI(title="Bibliotheca", lifespan=lifespan)
 
     app.add_middleware(
@@ -118,7 +138,7 @@ def create_app() -> FastAPI:
     app.include_router(importlib.import_module("app.routers.import").router)
     app.include_router(editorial_bulk.router)
 
-    _mount_spa_if_built(app)
+    _mount_spa_if_built(app, spa_dist)
     return app
 
 

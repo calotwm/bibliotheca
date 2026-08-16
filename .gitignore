@@ -33,6 +33,9 @@ node_modules/
 frontend/dist/
 frontend/.vite/
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
 # IDE
 .vscode/
 .idea/
