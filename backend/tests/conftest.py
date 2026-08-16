@@ -17,8 +17,10 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import get_session
 from app.main import app
-from app.models import Base
+from app.models import Base, User
+from app.security.jwt import create_access_token
 from app.security.limiter import limiter
+from app.security.password import hash_password
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -54,6 +56,16 @@ def _reset_rate_limiter():
     limiter.reset()
     yield
     limiter.reset()
+
+
+@pytest.fixture
+async def auth_headers(session):
+    """Seed an admin user and return a Bearer Authorization header."""
+    user = User(username="admin", password_hash=hash_password("admin"), role="admin")
+    session.add(user)
+    await session.commit()
+    token = create_access_token("admin", "admin")
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
