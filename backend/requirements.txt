@@ -1,0 +1,19 @@
+# Runtime dependencies — keep in sync with [project].dependencies in pyproject.toml
+fastapi>=0.115
+uvicorn[standard]>=0.34
+sqlalchemy[asyncio]>=2.0
+asyncpg>=0.30
+aiosqlite>=0.21
+alembic>=1.16
+pydantic-settings>=2.0
+python-jose[cryptography]>=3.3
+passlib[bcrypt]>=1.7
+slowapi>=0.1.10
+openpyxl>=3.1
+fpdf2>=2.8
+python-multipart>=0.0.20
+
+# Test dependencies — keep in sync with [project.optional-dependencies].dev
+pytest>=8
+pytest-asyncio>=0.24
+httpx>=0.28
