@@ -46,6 +46,7 @@ async def upsert_book(
     stock: int,
     isbn: str | None = None,
     genre: str | None = None,
+    source_sheet: str | None = None,
 ) -> tuple[Book, bool]:
     """Create-or-update a book by natural key (returns ``(book, created)``).
 
@@ -63,6 +64,8 @@ async def upsert_book(
         existing.isbn = isbn
         existing.genre = genre
         existing.is_active = True
+        if source_sheet is not None:
+            existing.source_sheet = source_sheet
         return existing, False
 
     book = Book(
@@ -74,6 +77,7 @@ async def upsert_book(
         stock=stock,
         isbn=isbn,
         genre=genre,
+        source_sheet=source_sheet,
     )
     session.add(book)
     await session.flush()

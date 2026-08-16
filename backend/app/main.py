@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -17,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import get_settings
 from .db import SessionLocal
 from .models import User
-from .routers import auth, books, categories, sales
+from .routers import auth, books, categories, editorial_bulk, sales
 from .routers.categories import seed_categories
 from .security.cors import parse_allowed_origins
 from .security.limiter import limiter
@@ -108,6 +109,10 @@ def create_app() -> FastAPI:
     app.include_router(categories.router)
     app.include_router(books.router)
     app.include_router(sales.router)
+    # The import router lives in a module literally named ``import`` (reserved
+    # keyword), so it is wired through importlib instead of ``from ... import``.
+    app.include_router(importlib.import_module("app.routers.import").router)
+    app.include_router(editorial_bulk.router)
 
     _mount_spa_if_built(app)
     return app
