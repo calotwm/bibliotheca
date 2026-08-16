@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..excel_import.parser import ExcelImportError, parse_workbook
+from ..excel_import.parser import parse_workbook
 from ..models import Category, User
 from ..schemas.import_data import (
     ImportApplyRequest,
@@ -75,10 +75,7 @@ async def preview_import(
     Read-only: performs natural-key lookups but never writes (REQ-IMP-3).
     """
     available = list((await session.execute(select(Category.name))).scalars().all())
-    try:
-        workbook = parse_workbook(data, filename=filename, available_categories=available)
-    except ExcelImportError as exc:
-        raise exc
+    workbook = parse_workbook(data, filename=filename, available_categories=available)
 
     sheets_payload: list[ImportSheet] = []
     summaries: list[ImportSheetSummary] = []
