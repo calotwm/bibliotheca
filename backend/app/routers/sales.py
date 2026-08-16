@@ -4,6 +4,7 @@ from datetime import date, datetime, time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -14,6 +15,7 @@ from ..models import Sale, SaleItem, User
 from ..schemas.sale import SaleCreate, SaleItemRead, SaleListRead, SaleRead
 from ..security.deps import require_user
 from ..security.limiter import limiter
+from ..services import pdf_service
 from ..services.sale_service import (
     BookUnavailableError,
     OversellError,
@@ -157,3 +159,41 @@ async def get_sale(
             status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found"
         )
     return _sale_to_read(sale)
+
+
+@router.get("/{sale_id}/invoice.pdf")
+@limiter.limit(_settings.rate_limit_api)
+async def get_sale_invoice(
+    request: Request,
+    sale_id: int,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_user)],
+) -> Response:
+    """Generate (or reprint) the sale's non-fiscal PDF invoice (REQ-PDF-1/2)."""
+    sale = (
+        await session.execute(
+            select(Sale)
+            .options(
+                selectinload(Sale.items).selectinload(SaleItem.book),
+                selectinload(Sale.user),
+            )
+            .where(Sale.id == sale_id)
+        )
+    ).scalar_one_or_none()
+    if sale is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found"
+        )
+
+    pdf_bytes = pdf_service.build_invoice_pdf(sale)
+    storage_path = pdf_service.persist_invoice(sale.sale_number, pdf_bytes)
+    if sale.invoice_pdf_path != str(storage_path):
+        sale.invoice_pdf_path = str(storage_path)
+        await session.commit()
+
+    filename = pdf_service.invoice_filename(sale.sale_number)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )

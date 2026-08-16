@@ -18,6 +18,9 @@ env/
 *.db
 *.sqlite3
 
+# Generated invoice PDFs (regenerable from sale rows)
+storage/
+
 # Test / coverage / tooling caches
 .pytest_cache/
 .coverage

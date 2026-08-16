@@ -12,6 +12,10 @@ REQUIRED_VARS = ("SECRET_KEY", "ALLOWED_ORIGINS", "ADMIN_USERNAME", "ADMIN_PASSW
 def clear_required_env(monkeypatch):
     for var in REQUIRED_VARS:
         monkeypatch.delenv(var, raising=False)
+    # BUSINESS_* defaults are asserted as empty; the test-suite env (conftest)
+    # sets them, so clear them too to exercise the true defaults.
+    for var in ("BUSINESS_NAME", "BUSINESS_CUIT", "BUSINESS_ADDRESS", "BUSINESS_CONDITION"):
+        monkeypatch.delenv(var, raising=False)
 
 
 def _settings(**overrides):
