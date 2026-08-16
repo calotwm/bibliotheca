@@ -108,7 +108,7 @@ def _mount_spa_if_built(app: FastAPI, dist_dir: Path | None = None) -> None:
 
 
 def create_app(spa_dist: Path | None = None) -> FastAPI:
-    app = FastAPI(title="Bibliotheca", lifespan=lifespan)
+    app = FastAPI(title="Librería", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,

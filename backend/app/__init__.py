@@ -1,1 +1,1 @@
-"""Bibliotheca backend application package."""
+"""Librería backend application package."""

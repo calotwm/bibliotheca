@@ -1,4 +1,4 @@
-# Bibliotheca
+# Librería
 
 Bookstore inventory & sales webapp (single-tenant). Replaces a manual Excel
 inventory (1724 books, 6 sheets) with a web app: catalog management, POS sales,

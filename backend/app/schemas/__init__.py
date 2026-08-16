@@ -1,1 +1,1 @@
-"""Pydantic schemas for the Bibliotheca API."""
+"""Pydantic schemas for the Librería API."""

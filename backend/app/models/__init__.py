@@ -1,4 +1,4 @@
-"""SQLAlchemy models for the Bibliotheca domain."""
+"""SQLAlchemy models for the Librería domain."""
 
 from .audit_log import AuditLog
 from .base import Base, TimestampMixin

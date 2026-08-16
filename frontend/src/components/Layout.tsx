@@ -18,7 +18,7 @@ export function Layout() {
   );
   const { user, logout } = useAuth();
   const location = useLocation();
-  const title = PAGE_TITLES[location.pathname] ?? "Bibliotheca";
+  const title = PAGE_TITLES[location.pathname] ?? "Librería";
 
   const toggle = () => {
     setCollapsed((current) => {

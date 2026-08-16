@@ -47,7 +47,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
       <div className="flex h-14 items-center gap-2 px-3">
         <span className="font-heading text-xl font-black">B</span>
         {!collapsed && (
-          <span className="font-heading text-lg font-black">Bibliotheca</span>
+          <span className="font-heading text-lg font-black">Librería</span>
         )}
         <button
           type="button"
