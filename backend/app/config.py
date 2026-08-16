@@ -11,6 +11,20 @@ from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def normalize_database_url(url: str) -> str:
+    """Map a plain PostgreSQL URL to the asyncpg driver URL.
+
+    Railway's Postgres plugin injects ``postgresql://`` (which SQLAlchemy
+    resolves to the sync psycopg2 driver), while this app is fully async and
+    requires ``postgresql+asyncpg://``. SQLite URLs pass through unchanged.
+    """
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
 class Settings(BaseSettings):
     """Runtime settings read from environment variables (or a ``.env`` file)."""
 

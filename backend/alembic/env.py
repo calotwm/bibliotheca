@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from app.models import Base  # noqa: F401  (registers all models)
+from app.config import normalize_database_url
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -19,10 +20,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Allow DATABASE_URL to override the alembic.ini default.
+# Allow DATABASE_URL to override the alembic.ini default. Plain PostgreSQL
+# URLs (Railway Postgres) are normalized to the asyncpg driver.
 db_url = os.environ.get("DATABASE_URL")
 if db_url:
-    config.set_main_option("sqlalchemy.url", db_url)
+    config.set_main_option("sqlalchemy.url", normalize_database_url(db_url))
 
 # add your model's MetaData object here
 # for 'autogenerate' support

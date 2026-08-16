@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.config import Settings
+from app.config import Settings, normalize_database_url
 
 REQUIRED_VARS = ("SECRET_KEY", "ALLOWED_ORIGINS", "ADMIN_USERNAME", "ADMIN_PASSWORD")
 
@@ -88,3 +88,22 @@ def test_env_overrides_apply(clear_required_env, monkeypatch):
     assert s.secret_key == "from-env"
     assert s.allowed_origins_list == ["http://env.example.com"]
     assert s.low_stock_threshold == 3
+
+
+def test_normalize_database_url_maps_plain_postgres_to_asyncpg():
+    assert (
+        normalize_database_url("postgres://u:p@host/db")
+        == "postgresql+asyncpg://u:p@host/db"
+    )
+    assert (
+        normalize_database_url("postgresql://u:p@host/db")
+        == "postgresql+asyncpg://u:p@host/db"
+    )
+    assert (
+        normalize_database_url("postgresql+asyncpg://u:p@host/db")
+        == "postgresql+asyncpg://u:p@host/db"
+    )
+    assert (
+        normalize_database_url("sqlite+aiosqlite:///./bibliotheca.db")
+        == "sqlite+aiosqlite:///./bibliotheca.db"
+    )

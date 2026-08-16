@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from .config import get_settings
+from .config import get_settings, normalize_database_url
 
 settings = get_settings()
 
@@ -51,7 +51,7 @@ def build_engine(url: str):
     return engine
 
 
-engine = build_engine(settings.database_url)
+engine = build_engine(normalize_database_url(settings.database_url))
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
