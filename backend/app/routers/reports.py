@@ -19,8 +19,10 @@ from ..db import get_session
 from ..models import Book, Category, Sale, SaleItem, User
 from ..schemas.reports import (
     DaySummary,
+    InventoryReport,
     SalesGroupSummary,
     SalesReport,
+    TopSellerRead,
 )
 from ..security.deps import require_user
 from ..security.limiter import limiter
@@ -150,4 +152,87 @@ async def sales_report(
         by_day=by_day,
         group_by=group_by,
         groups=await _grouped_summary(session, group_by, filters),
+    )
+
+
+@router.get("/top-sellers", response_model=list[TopSellerRead])
+@limiter.limit(_settings.rate_limit_api)
+async def top_sellers(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_user)],
+    limit: int = Query(10, ge=1, le=100),
+) -> list[TopSellerRead]:
+    """Top N books by quantity sold, with revenue from the price snapshot."""
+    query = (
+        select(
+            SaleItem.book_id,
+            Book.title,
+            Book.author,
+            Book.editorial,
+            func.coalesce(func.sum(SaleItem.quantity), 0).label("quantity_sold"),
+            func.coalesce(func.sum(SaleItem.subtotal), 0).label("revenue"),
+        )
+        .join(Book, Book.id == SaleItem.book_id)
+        .group_by(SaleItem.book_id, Book.title, Book.author, Book.editorial)
+        .order_by(
+            func.sum(SaleItem.quantity).desc(),
+            func.sum(SaleItem.subtotal).desc(),
+            Book.title,
+        )
+        .limit(limit)
+    )
+    rows = (await session.execute(query)).all()
+    return [
+        TopSellerRead(
+            book_id=row[0],
+            title=row[1],
+            author=row[2],
+            editorial=row[3],
+            quantity_sold=row[4],
+            revenue=_money(row[5]),
+        )
+        for row in rows
+    ]
+
+
+@router.get("/inventory", response_model=InventoryReport)
+@limiter.limit(_settings.rate_limit_api)
+async def inventory_report(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_user)],
+    category_id: int | None = None,
+) -> InventoryReport:
+    """Stock value and per-status counts for active books (optionally by category)."""
+    threshold = _settings.low_stock_threshold
+    in_condition = Book.stock > threshold
+    low_condition = and_(Book.stock > 0, Book.stock <= threshold)
+    out_condition = Book.stock == 0
+
+    query = select(
+        func.count(Book.id),
+        func.coalesce(func.sum(Book.stock), 0),
+        func.coalesce(func.sum(Book.price * Book.stock), 0),
+        func.coalesce(func.sum(case((in_condition, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((low_condition, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((out_condition, 1), else_=0)), 0),
+    ).where(Book.is_active.is_(True))
+    if category_id is not None:
+        query = query.where(Book.category_id == category_id)
+
+    total_books, total_units, stock_value, in_stock, low, out = (
+        await session.execute(query)
+    ).one()
+    return InventoryReport(
+        total_books=total_books,
+        total_units=total_units,
+        stock_value=_money(stock_value),
+        status_counts={
+            STOCK_IN_STOCK: in_stock,
+            STOCK_LOW: low,
+            STOCK_OUT: out,
+        },
+        threshold=threshold,
+        category_id=category_id,
     )

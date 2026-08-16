@@ -175,3 +175,80 @@ async def test_sales_report_invalid_group_by_400(auth_headers, client):
 async def test_sales_report_requires_auth(client):
     response = await client.get("/api/reports/sales")
     assert response.status_code == 401
+
+
+async def test_top_sellers_ordering_and_revenue(auth_headers, session, client):
+    a = await _seed_book(session, title="A", price="10.00", stock=50)
+    b = await _seed_book(session, title="B", price="5.00", stock=50)
+    c = await _seed_book(session, title="C", price="1.00", stock=50)
+    await _seed_sale(session, a, quantity=5)
+    await _seed_sale(session, b, quantity=3)
+    await _seed_sale(session, c, quantity=1)
+    await _seed_sale(session, c, quantity=1)
+
+    response = await client.get("/api/reports/top-sellers", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert [item["title"] for item in data] == ["A", "B", "C"]
+    assert data[0]["quantity_sold"] == 5
+    assert data[0]["revenue"] == "50.00"
+    assert data[1]["quantity_sold"] == 3
+    assert data[1]["revenue"] == "15.00"
+    assert data[2]["quantity_sold"] == 2
+    assert data[2]["revenue"] == "2.00"
+
+
+async def test_top_sellers_limit(auth_headers, session, client):
+    a = await _seed_book(session, title="A", stock=50)
+    b = await _seed_book(session, title="B", stock=50)
+    await _seed_sale(session, a, quantity=1)
+    await _seed_sale(session, b, quantity=1)
+
+    response = await client.get("/api/reports/top-sellers?limit=1", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["title"] == "A"
+
+
+async def test_top_sellers_requires_auth(client):
+    response = await client.get("/api/reports/top-sellers")
+    assert response.status_code == 401
+
+
+async def test_inventory_status_counts_and_value(auth_headers, session, client):
+    await _seed_book(session, title="Out", stock=0, price="1.00")
+    await _seed_book(session, title="Low", stock=3, price="10.00")
+    await _seed_book(session, title="In", stock=10, price="5.00")
+
+    response = await client.get("/api/reports/inventory", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_books"] == 3
+    assert data["total_units"] == 13
+    assert data["stock_value"] == "80.00"
+    assert data["threshold"] == 5
+    assert data["category_id"] is None
+    assert data["status_counts"] == {"In Stock": 1, "Low": 1, "Out": 1}
+
+
+async def test_inventory_category_filter(auth_headers, session, client):
+    novela = await _seed_book(session, title="Rayuela", category="Novela", stock=0)
+    await _seed_book(session, title="Odas", author="Pablo Neruda",
+                     category="Poesía", stock=7)
+    cid = await _category(session, "Novela")
+
+    response = await client.get(
+        f"/api/reports/inventory?category_id={cid}", headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_books"] == 1
+    assert data["total_units"] == 0
+    assert data["category_id"] == cid
+    assert data["status_counts"] == {"In Stock": 0, "Low": 0, "Out": 1}
+
+
+async def test_inventory_requires_auth(client):
+    response = await client.get("/api/reports/inventory")
+    assert response.status_code == 401

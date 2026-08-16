@@ -27,3 +27,21 @@ class SalesReport(BaseModel):
     by_day: list[DaySummary] = []
     group_by: str | None = None
     groups: list[SalesGroupSummary] = []
+
+
+class TopSellerRead(BaseModel):
+    book_id: int
+    title: str
+    author: str
+    editorial: str
+    quantity_sold: int
+    revenue: Decimal
+
+
+class InventoryReport(BaseModel):
+    total_books: int
+    total_units: int
+    stock_value: Decimal
+    status_counts: dict[str, int]
+    threshold: int
+    category_id: int | None = None
