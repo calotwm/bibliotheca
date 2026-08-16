@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import get_settings
 from .db import SessionLocal
 from .models import User
-from .routers import auth
+from .routers import auth, books, categories
+from .routers.categories import seed_categories
 from .security.cors import parse_allowed_origins
 from .security.limiter import limiter
 from .security.password import hash_password
@@ -47,6 +48,7 @@ async def bootstrap_admin(session: AsyncSession) -> None:
 async def lifespan(_app: FastAPI):
     async with SessionLocal() as session:
         await bootstrap_admin(session)
+        await seed_categories(session)
     yield
 
 
@@ -103,6 +105,8 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth.router)
+    app.include_router(categories.router)
+    app.include_router(books.router)
 
     _mount_spa_if_built(app)
     return app
