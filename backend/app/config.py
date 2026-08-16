@@ -7,7 +7,7 @@ Environment variables are validated when :func:`get_settings` is first called
 
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,9 +25,10 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./bibliotheca.db"
 
     # --- Security ---------------------------------------------------------
-    # HS256 JWT signing key. Consumed by the auth module in a later slice;
-    # wired here so the env surface is stable from day one.
-    secret_key: str
+    # HS256 JWT signing key (accepts SECRET_KEY or JWT_SECRET).
+    secret_key: str = Field(
+        validation_alias=AliasChoices("SECRET_KEY", "JWT_SECRET")
+    )
     # Comma-separated CORS allowlist. Never "*" when credentials are enabled.
     allowed_origins: str
 
@@ -60,9 +61,15 @@ class Settings(BaseSettings):
 
     @field_validator("allowed_origins")
     @classmethod
-    def _require_non_empty_origins(cls, value: str) -> str:
+    def _validate_origins(cls, value: str) -> str:
         if not value or not value.strip():
             raise ValueError("ALLOWED_ORIGINS must not be empty")
+        origins = [origin.strip() for origin in value.split(",") if origin.strip()]
+        if "*" in origins:
+            raise ValueError(
+                "ALLOWED_ORIGINS must not contain '*' (wildcard is incompatible "
+                "with allow_credentials=True)"
+            )
         return value
 
     @property

@@ -51,6 +51,16 @@ def test_defaults_apply(clear_required_env):
     assert s.business_condition == ""
 
 
+def test_allowed_origins_rejects_wildcard(clear_required_env):
+    with pytest.raises(ValidationError):
+        _settings(
+            SECRET_KEY="secret",
+            ALLOWED_ORIGINS="*",
+            ADMIN_USERNAME="admin",
+            ADMIN_PASSWORD="admin",
+        )
+
+
 def test_allowed_origins_parsing(clear_required_env):
     s = _settings(
         SECRET_KEY="secret",
