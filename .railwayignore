@@ -1,0 +1,10 @@
+.git
+.atl
+.engram
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+frontend/dist
+backend/*.db
+backend/*.db-*
+*.tsbuildinfo
