@@ -12,12 +12,17 @@ from pathlib import Path
 
 import pytest
 from openpyxl import Workbook
+from sqlalchemy import select
 
 from app.excel_import import (
     EmptyWorkbookError,
     UnsupportedFileError,
     parse_workbook,
 )
+from app.models import Book, Category, User
+from app.routers.categories import seed_categories
+from app.security.jwt import create_access_token
+from app.security.password import hash_password
 
 REAL_CATALOG = Path(r"C:\Users\camil\Downloads\Catálogo Agosto '26.xlsx")
 
@@ -247,3 +252,212 @@ def test_real_catalog_file_layouts():
     total_rows = sum(len(sheet.rows) for sheet in parsed.sheets)
     assert total_valid >= 640
     assert total_rows - total_valid < 5
+
+
+# --------------------------------------------------------------------------
+# Endpoint tests: /api/import/preview and /api/import/apply (REQ-IMP-3/4)
+# --------------------------------------------------------------------------
+
+APPLY_FILE = [
+    ("TÍTULO", "AUTOR", "EDITORIAL", "PRECIOS", "STOCK"),
+    ("Rayuela", "Cortázar, Julio", "Sudamericana", 29500, 3),   # update (exists)
+    ("1984", "Orwell, George", "La Pollera", 24000, 1),          # insert
+    ("1984", "Orwell, George", "La Pollera", 24000, 1),          # in-file duplicate -> skip
+]
+
+
+async def _seed_categories(session):
+    await seed_categories(session)
+
+
+async def _category_id(session, name):
+    return (
+        await session.execute(select(Category).where(Category.name == name))
+    ).scalar_one().id
+
+
+async def _seed_book(session, *, title, author="Cortázar, Julio", editorial="Sudamericana", price="29500.00", stock=5, category="Novela"):
+    cid = await _category_id(session, category)
+    book = Book(
+        title=title,
+        author=author,
+        editorial=editorial,
+        category_id=cid,
+        price=price,
+        stock=stock,
+    )
+    session.add(book)
+    await session.commit()
+    return book.id
+
+
+async def _cashier_headers(session):
+    user = User(username="cashier", password_hash=hash_password("cashier"), role="cashier")
+    session.add(user)
+    await session.commit()
+    token = create_access_token("cashier", "cashier")
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _preview(client, headers, sheets):
+    data = _xlsx_bytes(sheets)
+    response = await client.post(
+        "/api/import/preview",
+        headers=headers,
+        files={"file": ("catalog.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    return response
+
+
+async def test_preview_reports_counts_without_writing(auth_headers, session, client):
+    await _seed_categories(session)
+    await _seed_book(session, title="Rayuela")
+    response = await _preview(client, auth_headers, {"NOVELAS": APPLY_FILE})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["totals"]["inserts"] == 1
+    assert data["totals"]["updates"] == 1
+    assert data["totals"]["skips"] == 1
+    assert data["totals"]["errors"] == 0
+    assert data["summaries"][0]["category"] == "Novela"
+    assert data["token"]
+    # Preview must not write: the new book is still absent.
+    books = (await session.execute(select(Book))).scalars().all()
+    assert len(books) == 1
+    assert books[0].title == "Rayuela"
+
+
+async def test_preview_requires_auth(client):
+    response = await _preview(client, {}, {"NOVELAS": HEADER_WITH_PRECIO})
+    assert response.status_code == 401
+
+
+async def test_preview_forbidden_for_cashier(auth_headers, session, client):
+    await _seed_categories(session)
+    headers = await _cashier_headers(session)
+    response = await _preview(client, headers, {"NOVELAS": HEADER_WITH_PRECIO})
+    assert response.status_code == 403
+
+
+async def test_preview_rejects_non_xlsx(auth_headers, client):
+    response = await client.post(
+        "/api/import/preview",
+        headers=auth_headers,
+        files={"file": ("notes.csv", b"a,b,c\n1,2,3", "text/csv")},
+    )
+    assert response.status_code == 400
+
+
+async def test_apply_inserts_updates_and_skips(auth_headers, session, client):
+    await _seed_categories(session)
+    await _seed_book(session, title="Rayuela", stock=5)
+    preview = await _preview(client, auth_headers, {"NOVELAS": APPLY_FILE})
+    payload = {"token": preview.json()["token"], "filename": "catalog.xlsx", "sheets": preview.json()["sheets"]}
+
+    response = await client.post("/api/import/apply", json=payload, headers=auth_headers)
+    assert response.status_code == 200
+    totals = response.json()["totals"]
+    assert totals["inserts"] == 1
+    assert totals["updates"] == 1
+    assert totals["skips"] == 1
+
+    books = (await session.execute(select(Book))).scalars().all()
+    by_title = {b.title: b for b in books}
+    assert set(by_title) == {"Rayuela", "1984"}
+    assert by_title["Rayuela"].stock == 3          # updated from the file
+    assert by_title["Rayuela"].price == Decimal("29500.00")
+    assert by_title["1984"].stock == 1
+    assert by_title["1984"].source_sheet == "NOVELAS"
+
+
+async def test_apply_rolls_back_everything_on_bad_row(auth_headers, session, client):
+    await _seed_categories(session)
+    await _seed_book(session, title="Rayuela", stock=5)
+    preview = await _preview(client, auth_headers, {"NOVELAS": APPLY_FILE})
+    sheets = preview.json()["sheets"]
+    sheets.append(
+        {
+            "sheet": "FANTASÍA",
+            "category": "NoExiste",
+            "rows": [
+                {"row_number": 2, "title": "Cien años", "author": "García Márquez, Gabriel", "editorial": "Sudamericana", "genre": None, "price": "12000.00", "stock": 2, "is_new": True}
+            ],
+        }
+    )
+    payload = {"token": preview.json()["token"], "sheets": sheets}
+
+    response = await client.post("/api/import/apply", json=payload, headers=auth_headers)
+    assert response.status_code == 400
+
+    books = (await session.execute(select(Book))).scalars().all()
+    assert len(books) == 1
+    assert books[0].title == "Rayuela"
+    assert books[0].stock == 5  # untouched: valid sheet row was rolled back too
+
+
+async def test_apply_token_mismatch_rejected(auth_headers, session, client):
+    await _seed_categories(session)
+    preview = await _preview(client, auth_headers, {"NOVELAS": HEADER_WITH_PRECIO})
+    payload = {"token": "deadbeef", "sheets": preview.json()["sheets"]}
+    response = await client.post("/api/import/apply", json=payload, headers=auth_headers)
+    assert response.status_code == 400
+    assert (await session.execute(select(Book))).scalars().all() == []
+
+
+async def test_bad_row_reported_in_preview_and_not_applied(auth_headers, session, client):
+    await _seed_categories(session)
+    bad_file = [
+        ("TÍTULO", "AUTOR", "EDITORIAL", "PRECIOS", "STOCK"),
+        ("Bueno", "Autor A", "Ed X", 10000, 1),
+        ("Sin precio", "Autor B", "Ed Y", None, 1),
+    ]
+    preview = await _preview(client, auth_headers, {"NOVELAS": bad_file})
+    data = preview.json()
+    assert data["totals"]["errors"] == 1
+    assert data["errors"][0]["sheet"] == "NOVELAS"
+    assert data["errors"][0]["row_number"] == 3
+    assert "Missing price" in data["errors"][0]["message"]
+    # Only the valid row is offered for apply.
+    assert len(data["sheets"][0]["rows"]) == 1
+
+    response = await client.post(
+        "/api/import/apply",
+        json={"token": data["token"], "sheets": data["sheets"]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    titles = {b.title for b in (await session.execute(select(Book))).scalars().all()}
+    assert titles == {"Bueno"}
+
+
+async def test_apply_forbidden_for_cashier(auth_headers, session, client):
+    await _seed_categories(session)
+    headers = await _cashier_headers(session)
+    response = await client.post(
+        "/api/import/apply", json={"token": "x", "sheets": []}, headers=headers
+    )
+    assert response.status_code == 403
+
+
+async def test_manual_add_uses_same_validation(auth_headers, session, client):
+    await _seed_categories(session)
+    cid = await _category_id(session, "Novela")
+    # Negative price is rejected exactly like an import row would be.
+    negative = await client.post(
+        "/api/books",
+        json={"title": "Negativo", "author": "A", "editorial": "E", "category_id": cid, "price": "-5.00", "stock": 1},
+        headers=auth_headers,
+    )
+    assert negative.status_code == 422
+    # Duplicate natural key updates instead of inserting (REQ-CAT-1).
+    await _seed_book(session, title="Rayuela", stock=5, price="29500.00")
+    duplicate = await client.post(
+        "/api/books",
+        json={"title": "Rayuela", "author": "Cortázar, Julio", "editorial": "Sudamericana", "category_id": cid, "price": "31000.00", "stock": 9},
+        headers=auth_headers,
+    )
+    assert duplicate.status_code == 200
+    books = (await session.execute(select(Book))).scalars().all()
+    assert len(books) == 1
+    assert books[0].price == Decimal("31000.00")
+    assert books[0].stock == 9

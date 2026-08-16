@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -108,6 +109,9 @@ def create_app() -> FastAPI:
     app.include_router(categories.router)
     app.include_router(books.router)
     app.include_router(sales.router)
+    # The import router lives in a module literally named ``import`` (reserved
+    # keyword), so it is wired through importlib instead of ``from ... import``.
+    app.include_router(importlib.import_module("app.routers.import").router)
 
     _mount_spa_if_built(app)
     return app
