@@ -171,6 +171,15 @@ export function AlertIcon({ className }: IconProps) {
   );
 }
 
+export function TagIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M12.6 2.6 21 11a2 2 0 0 1 0 2.8l-7.2 7.2a2 2 0 0 1-2.8 0L2.6 12.6A2 2 0 0 1 2 11.2V4a2 2 0 0 1 2-2h7.2c.5 0 1 .2 1.4.6z" />
+      <circle cx="7.5" cy="7.5" r="1.5" />
+    </Icon>
+  );
+}
+
 export function RefreshIcon({ className }: IconProps) {
   return (
     <Icon className={className}>

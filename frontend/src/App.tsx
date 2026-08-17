@@ -5,6 +5,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { ImportarExcel } from "./pages/ImportarExcel";
 import { Inventario } from "./pages/Inventario";
 import { Login } from "./pages/Login";
+import { Precios } from "./pages/Precios";
 import { Proveedores } from "./pages/Proveedores";
 import { Reportes } from "./pages/Reportes";
 import { Ventas } from "./pages/Ventas";
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="proveedores" element={<Proveedores />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="importar" element={<ImportarExcel />} />
+        <Route path="precios" element={<Precios />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
