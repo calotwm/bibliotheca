@@ -70,7 +70,7 @@ export function BookFormModal({
   }
 
   const inputClass =
-    "mt-1 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy";
+    "mt-1 min-h-11 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy";
 
   return (
     <Modal
@@ -140,14 +140,14 @@ export function BookFormModal({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-sm border border-navy/20 px-4 py-2 text-sm font-medium text-ink hover:bg-navy/5"
+            className="min-h-10 rounded-sm border border-navy/20 px-4 py-2 text-sm font-medium text-ink hover:bg-navy/5"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-60"
+            className="min-h-10 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-60"
           >
             {submitting ? "Guardando…" : initial ? "Guardar cambios" : "Crear libro"}
           </button>
