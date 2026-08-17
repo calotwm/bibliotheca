@@ -78,7 +78,7 @@ export function Reportes() {
   });
 
   const inputClass =
-    "rounded-sm border border-navy/20 bg-cream px-3 py-2 text-sm outline-none focus:border-navy";
+    "min-h-11 rounded-sm border border-navy/20 bg-cream px-3 py-2 text-sm outline-none focus:border-navy";
 
   const statusLabels: Record<string, string> = {
     "In Stock": "En stock",
@@ -141,12 +141,12 @@ export function Reportes() {
           <div className="mt-3 space-y-3">
             <div className="grid grid-cols-2 gap-3 md:w-96">
               <div className="rounded-sm border border-navy/10 bg-cream p-3">
-                <p className="text-xs text-ink-soft">Ventas</p>
-                <p className="text-lg font-bold">{salesQuery.data.total_sales}</p>
+                <p className="truncate text-xs text-ink-soft">Ventas</p>
+                <p className="truncate text-lg font-bold">{salesQuery.data.total_sales}</p>
               </div>
               <div className="rounded-sm border border-navy/10 bg-cream p-3">
-                <p className="text-xs text-ink-soft">Ingresos</p>
-                <p className="text-lg font-bold">{formatARS(salesQuery.data.total_revenue)}</p>
+                <p className="truncate text-xs text-ink-soft">Ingresos</p>
+                <p className="truncate text-lg font-bold">{formatARS(salesQuery.data.total_revenue)}</p>
               </div>
             </div>
             <DataTable
@@ -196,21 +196,21 @@ export function Reportes() {
         {inventory && (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <div className="rounded-sm border border-navy/10 bg-cream p-3">
-              <p className="text-xs text-ink-soft">Libros</p>
-              <p className="text-lg font-bold">{inventory.total_books}</p>
+              <p className="truncate text-xs text-ink-soft">Libros</p>
+              <p className="truncate text-lg font-bold">{inventory.total_books}</p>
             </div>
             <div className="rounded-sm border border-navy/10 bg-cream p-3">
-              <p className="text-xs text-ink-soft">Unidades</p>
-              <p className="text-lg font-bold">{inventory.total_units}</p>
+              <p className="truncate text-xs text-ink-soft">Unidades</p>
+              <p className="truncate text-lg font-bold">{inventory.total_units}</p>
             </div>
             <div className="rounded-sm border border-navy/10 bg-cream p-3">
-              <p className="text-xs text-ink-soft">Valor del stock</p>
-              <p className="text-lg font-bold">{formatARS(inventory.stock_value)}</p>
+              <p className="truncate text-xs text-ink-soft">Valor del stock</p>
+              <p className="truncate text-lg font-bold">{formatARS(inventory.stock_value)}</p>
             </div>
             {statusCards.map((card) => (
               <div key={card.label} className="rounded-sm border border-navy/10 bg-cream p-3">
-                <p className="text-xs text-ink-soft">{card.label}</p>
-                <p className="text-lg font-bold">{card.value}</p>
+                <p className="truncate text-xs text-ink-soft">{card.label}</p>
+                <p className="truncate text-lg font-bold">{card.value}</p>
               </div>
             ))}
           </div>

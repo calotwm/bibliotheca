@@ -5,11 +5,13 @@ import * as booksApi from "../api/books";
 import { createSale, fetchInvoice } from "../api/sales";
 import { StatusBadge } from "../components/StatusBadge";
 import {
+  CartIcon,
   CheckIcon,
   MinusIcon,
   PlusIcon,
   SearchIcon,
   TrashIcon,
+  XIcon,
 } from "../components/icons";
 import { formatARS, parsePrice } from "../lib/format";
 import type { Book, Sale } from "../lib/types";
@@ -47,6 +49,7 @@ export function Ventas() {
   const [customerCuit, setCustomerCuit] = useState("");
   const [result, setResult] = useState<Sale | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
 
   const { data: books = [], isLoading } = useQuery({
     queryKey: ["pos-books", debouncedSearch],
@@ -76,6 +79,15 @@ export function Ventas() {
     () => lines.reduce((sum, line) => sum + parsePrice(line.book.price) * line.qty, 0),
     [lines]
   );
+
+  useEffect(() => {
+    if (!cartOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCartOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [cartOpen]);
 
   function addToCart(book: Book) {
     setError(null);
@@ -119,6 +131,7 @@ export function Ventas() {
     onSuccess: (sale) => {
       setResult(sale);
       setCart({});
+      setCartOpen(false);
       setSearch("");
       setPaymentMethod("");
       setCustomerName("");
@@ -145,8 +158,112 @@ export function Ventas() {
     saleMutation.mutate();
   }
 
+  const inputClass =
+    "min-h-11 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy";
+
+  function renderCartBody() {
+    return (
+      <>
+        {lines.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-ink-soft">
+            El carrito está vacío. Agregue libros para iniciar una venta.
+          </p>
+        ) : (
+          <ul className="max-h-72 divide-y divide-navy/10 overflow-y-auto px-4">
+            {lines.map((line) => (
+              <li key={line.book.id} className="flex items-center justify-between gap-2 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{line.book.title}</p>
+                  <p className="text-xs text-ink-soft">
+                    {formatARS(line.book.price)} × {line.qty} = {formatARS(parsePrice(line.book.price) * line.qty)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => changeQty(line.book.id, -1)}
+                    className="rounded-sm border border-navy/20 p-3 hover:bg-navy/5 lg:p-1"
+                    aria-label={`Disminuir cantidad de ${line.book.title}`}
+                  >
+                    <MinusIcon className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="w-6 text-center text-sm font-semibold">{line.qty}</span>
+                  <button
+                    type="button"
+                    onClick={() => changeQty(line.book.id, 1)}
+                    disabled={line.qty >= line.book.stock}
+                    className="rounded-sm border border-navy/20 p-3 hover:bg-navy/5 disabled:opacity-40 lg:p-1"
+                    aria-label={`Aumentar cantidad de ${line.book.title}`}
+                  >
+                    <PlusIcon className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeFromCart(line.book.id)}
+                    className="rounded-sm p-3 text-ink-soft hover:text-red-700 lg:p-1"
+                    aria-label={`Quitar ${line.book.title}`}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="border-t border-navy/10 p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Total</span>
+            <span data-testid="cart-total" className="font-heading text-lg font-black text-navy">
+              {formatARS(total)}
+            </span>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            <input
+              type="text"
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value)}
+              placeholder="Método de pago (opcional)"
+              className={inputClass}
+            />
+            <input
+              type="text"
+              value={customerName}
+              onChange={(event) => setCustomerName(event.target.value)}
+              placeholder="Cliente (opcional)"
+              className={inputClass}
+            />
+            <input
+              type="text"
+              value={customerCuit}
+              onChange={(event) => setCustomerCuit(event.target.value)}
+              placeholder="CUIT (opcional)"
+              className={inputClass}
+            />
+          </div>
+
+          {error && (
+            <p className="mt-3 text-sm text-red-700" role="alert">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={confirmSale}
+            disabled={saleMutation.isPending || lines.length === 0}
+            className="mt-3 min-h-10 w-full rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
+          >
+            {saleMutation.isPending ? "Confirmando…" : "Confirmar venta"}
+          </button>
+        </div>
+      </>
+    );
+  }
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-4 pb-20 lg:grid-cols-[1fr_320px] lg:pb-0">
       <section>
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
@@ -190,7 +307,7 @@ export function Ventas() {
                   type="button"
                   onClick={() => addToCart(book)}
                   disabled={soldOut}
-                  className="mt-3 inline-flex items-center justify-center gap-1 rounded-sm bg-navy px-3 py-1.5 text-sm font-semibold text-cream hover:bg-navy-light disabled:cursor-not-allowed disabled:opacity-40"
+                  className="mt-3 inline-flex min-h-10 items-center justify-center gap-1 rounded-sm bg-navy px-3 py-1.5 text-sm font-semibold text-cream hover:bg-navy-light disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label={`Agregar ${book.title}`}
                 >
                   <PlusIcon className="h-4 w-4" />
@@ -203,107 +320,60 @@ export function Ventas() {
       </section>
 
       <aside
-        className="h-fit rounded-sm border border-navy/10 bg-cream lg:sticky lg:top-20"
+        className="hidden h-fit rounded-sm border border-navy/10 bg-cream lg:sticky lg:top-20 lg:block"
         data-testid="checkout-panel"
         aria-label="Panel de venta"
       >
         <h2 className="border-b border-navy/10 px-4 py-3 text-base font-bold">Venta actual</h2>
+        {renderCartBody()}
+      </aside>
 
-        {lines.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-ink-soft">
-            El carrito está vacío. Agregue libros para iniciar una venta.
-          </p>
-        ) : (
-          <ul className="max-h-72 divide-y divide-navy/10 overflow-y-auto px-4">
-            {lines.map((line) => (
-              <li key={line.book.id} className="flex items-center justify-between gap-2 py-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{line.book.title}</p>
-                  <p className="text-xs text-ink-soft">
-                    {formatARS(line.book.price)} × {line.qty} = {formatARS(parsePrice(line.book.price) * line.qty)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => changeQty(line.book.id, -1)}
-                    className="rounded-sm border border-navy/20 p-1 hover:bg-navy/5"
-                    aria-label={`Disminuir cantidad de ${line.book.title}`}
-                  >
-                    <MinusIcon className="h-3.5 w-3.5" />
-                  </button>
-                  <span className="w-6 text-center text-sm font-semibold">{line.qty}</span>
-                  <button
-                    type="button"
-                    onClick={() => changeQty(line.book.id, 1)}
-                    disabled={line.qty >= line.book.stock}
-                    className="rounded-sm border border-navy/20 p-1 hover:bg-navy/5 disabled:opacity-40"
-                    aria-label={`Aumentar cantidad de ${line.book.title}`}
-                  >
-                    <PlusIcon className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeFromCart(line.book.id)}
-                    className="rounded-sm p-1 text-ink-soft hover:text-red-700"
-                    aria-label={`Quitar ${line.book.title}`}
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="border-t border-navy/10 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Total</span>
-            <span data-testid="cart-total" className="font-heading text-lg font-black text-navy">
-              {formatARS(total)}
-            </span>
-          </div>
-
-          <div className="mt-3 space-y-2">
-            <input
-              type="text"
-              value={paymentMethod}
-              onChange={(event) => setPaymentMethod(event.target.value)}
-              placeholder="Método de pago (opcional)"
-              className="w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy"
-            />
-            <input
-              type="text"
-              value={customerName}
-              onChange={(event) => setCustomerName(event.target.value)}
-              placeholder="Cliente (opcional)"
-              className="w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy"
-            />
-            <input
-              type="text"
-              value={customerCuit}
-              onChange={(event) => setCustomerCuit(event.target.value)}
-              placeholder="CUIT (opcional)"
-              className="w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy"
-            />
-          </div>
-
-          {error && (
-            <p className="mt-3 text-sm text-red-700" role="alert">
-              {error}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-navy/10 bg-cream px-4 py-2 lg:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs text-ink-soft">
+              {lines.length} {lines.length === 1 ? "ítem" : "ítems"}
             </p>
-          )}
-
+            <p className="truncate font-heading text-lg font-black text-navy">{formatARS(total)}</p>
+          </div>
           <button
             type="button"
-            onClick={confirmSale}
-            disabled={saleMutation.isPending || lines.length === 0}
-            className="mt-3 w-full rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
+            onClick={() => setCartOpen(true)}
+            className="inline-flex min-h-10 items-center gap-1 rounded-sm bg-navy px-4 text-sm font-semibold text-cream hover:bg-navy-light"
           >
-            {saleMutation.isPending ? "Confirmando…" : "Confirmar venta"}
+            <CartIcon className="h-4 w-4" />
+            Ver carrito
           </button>
         </div>
-      </aside>
+      </div>
+
+      {cartOpen && (
+        <div
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Venta actual"
+        >
+          <div
+            className="absolute inset-0 bg-navy/50"
+            onClick={() => setCartOpen(false)}
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-lg border border-navy/10 bg-cream shadow-xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-navy/10 bg-cream px-4 py-3">
+              <h2 className="text-base font-bold">Venta actual</h2>
+              <button
+                type="button"
+                onClick={() => setCartOpen(false)}
+                aria-label="Cerrar carrito"
+                className="rounded-sm p-2 text-ink-soft hover:text-ink"
+              >
+                <XIcon className="h-5 w-5" />
+              </button>
+            </div>
+            {renderCartBody()}
+          </div>
+        </div>
+      )}
 
       {result && (
         <div

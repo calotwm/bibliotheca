@@ -4,10 +4,20 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./Sidebar";
 
-function renderSidebar(collapsed: boolean, onLogout: () => void = () => {}) {
+function renderSidebar(
+  collapsed: boolean,
+  onLogout: () => void = () => {},
+  onMobileClose: () => void = () => {}
+) {
   return render(
     <MemoryRouter>
-      <Sidebar collapsed={collapsed} onToggle={() => {}} onLogout={onLogout} />
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={() => {}}
+        onLogout={onLogout}
+        mobileOpen={false}
+        onMobileClose={onMobileClose}
+      />
     </MemoryRouter>
   );
 }
@@ -24,9 +34,9 @@ describe("Sidebar", () => {
     expect(screen.getByText("Cerrar sesión")).toBeInTheDocument();
   });
 
-  it("hides labels when collapsed", () => {
+  it("hides labels on desktop when collapsed", () => {
     renderSidebar(true);
-    expect(screen.queryByText("Inventario")).not.toBeInTheDocument();
+    expect(screen.getByText("Inventario")).toHaveClass("lg:hidden");
     expect(screen.getByTitle("Inventario")).toBeInTheDocument();
   });
 
@@ -36,5 +46,47 @@ describe("Sidebar", () => {
     renderSidebar(false, onLogout);
     await user.click(screen.getByText("Cerrar sesión"));
     expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders as a dialog when mobileOpen and closes on Escape", async () => {
+    const user = userEvent.setup();
+    const onMobileClose = vi.fn();
+    render(
+      <MemoryRouter>
+        <Sidebar
+          collapsed={false}
+          onToggle={() => {}}
+          onLogout={() => {}}
+          mobileOpen
+          onMobileClose={onMobileClose}
+        />
+      </MemoryRouter>
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Menú de navegación" })
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(onMobileClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes when the backdrop is clicked", async () => {
+    const user = userEvent.setup();
+    const onMobileClose = vi.fn();
+    render(
+      <MemoryRouter>
+        <Sidebar
+          collapsed={false}
+          onToggle={() => {}}
+          onLogout={() => {}}
+          mobileOpen
+          onMobileClose={onMobileClose}
+        />
+      </MemoryRouter>
+    );
+    const backdrop = document.querySelector(
+      '[aria-hidden="true"]'
+    ) as HTMLElement;
+    await user.click(backdrop);
+    expect(onMobileClose).toHaveBeenCalledTimes(1);
   });
 });

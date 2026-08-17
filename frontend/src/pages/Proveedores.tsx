@@ -53,7 +53,7 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
   }
 
   const inputClass =
-    "mt-1 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy";
+    "mt-1 min-h-11 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy";
 
   return (
     <Modal title={initial ? "Editar proveedor" : "Nuevo proveedor"} onClose={onCancel}>
@@ -95,14 +95,14 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-sm border border-navy/20 px-4 py-2 text-sm font-medium text-ink hover:bg-navy/5"
+            className="min-h-10 rounded-sm border border-navy/20 px-4 py-2 text-sm font-medium text-ink hover:bg-navy/5"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-60"
+            className="min-h-10 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-60"
           >
             {submitting ? "Guardando…" : initial ? "Guardar cambios" : "Crear proveedor"}
           </button>
@@ -175,7 +175,7 @@ export function Proveedores() {
               setFormError(null);
               setShowForm(true);
             }}
-            className="rounded-sm p-1.5 text-ink-soft hover:bg-navy/5 hover:text-navy"
+            className="rounded-sm p-3 text-ink-soft hover:bg-navy/5 hover:text-navy lg:p-1.5"
             aria-label={`Editar ${row.name}`}
             title="Editar"
           >
@@ -184,7 +184,7 @@ export function Proveedores() {
           <button
             type="button"
             onClick={() => setDeleting(row)}
-            className="rounded-sm p-1.5 text-ink-soft hover:bg-red-50 hover:text-red-700"
+            className="rounded-sm p-3 text-ink-soft hover:bg-red-50 hover:text-red-700 lg:p-1.5"
             aria-label={`Eliminar ${row.name}`}
             title="Eliminar"
           >
@@ -205,7 +205,7 @@ export function Proveedores() {
             setFormError(null);
             setShowForm(true);
           }}
-          className="inline-flex items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light"
+          className="inline-flex min-h-10 items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light"
         >
           <PlusIcon className="h-4 w-4" />
           Nuevo proveedor

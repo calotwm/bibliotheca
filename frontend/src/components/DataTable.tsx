@@ -25,11 +25,11 @@ export function DataTable<T>({
   }
   return (
     <div className="overflow-x-auto rounded-sm border border-navy/10 bg-cream">
-      <table className="w-full text-left text-sm">
+      <table className="w-full min-w-[640px] text-left text-sm">
         <thead className="bg-navy text-cream">
           <tr>
             {columns.map((column) => (
-              <th key={column.key} className="px-3 py-2 font-medium">
+              <th key={column.key} className="px-3 py-2.5 font-medium">
                 {column.header}
               </th>
             ))}
@@ -39,7 +39,7 @@ export function DataTable<T>({
           {rows.map((row, index) => (
             <tr key={getRowKey ? getRowKey(row) : index} className="hover:bg-navy/5">
               {columns.map((column) => (
-                <td key={column.key} className={`px-3 py-2 ${column.className ?? ""}`}>
+                <td key={column.key} className={`px-3 py-2.5 ${column.className ?? ""}`}>
                   {column.render(row)}
                 </td>
               ))}

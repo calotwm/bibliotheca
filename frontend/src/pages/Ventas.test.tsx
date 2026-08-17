@@ -107,4 +107,17 @@ describe("Ventas (POS)", () => {
       within(checkoutPanel()).getByText(/El carrito está vacío/)
     ).toBeInTheDocument();
   });
+
+  it("opens the mobile cart as a bottom sheet from the bar", async () => {
+    const user = userEvent.setup();
+    renderVentas();
+    const addButtons = await screen.findAllByRole("button", { name: /Agregar/ });
+    await user.click(addButtons[0]);
+
+    await user.click(screen.getByRole("button", { name: "Ver carrito" }));
+    const sheet = screen.getByRole("dialog", { name: "Venta actual" });
+    expect(sheet).toBeInTheDocument();
+    expect(within(sheet).getByText("Cien años de soledad")).toBeInTheDocument();
+    expect(within(sheet).getByTestId("cart-total")).toHaveTextContent("12.000");
+  });
 });
