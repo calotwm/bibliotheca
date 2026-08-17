@@ -12,6 +12,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/reportes": "Reportes",
   "/importar": "Importar Excel",
   "/precios": "Precios",
+  "/cuenta": "Mi cuenta",
 };
 
 export function Layout() {

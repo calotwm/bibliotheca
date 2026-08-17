@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
+import { Cuenta } from "./pages/Cuenta";
 import { ImportarExcel } from "./pages/ImportarExcel";
 import { Inventario } from "./pages/Inventario";
 import { Login } from "./pages/Login";
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="reportes" element={<Reportes />} />
         <Route path="importar" element={<ImportarExcel />} />
         <Route path="precios" element={<Precios />} />
+        <Route path="cuenta" element={<Cuenta />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

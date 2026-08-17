@@ -10,6 +10,7 @@ import {
   MenuIcon,
   TagIcon,
   UploadIcon,
+  UserIcon,
   UsersIcon,
 } from "./icons";
 
@@ -32,6 +33,7 @@ const NAV_ITEMS: NavEntry[] = [
   { to: "/reportes", label: "Reportes", icon: ChartIcon },
   { to: "/importar", label: "Importar Excel", icon: UploadIcon },
   { to: "/precios", label: "Precios", icon: TagIcon },
+  { to: "/cuenta", label: "Cuenta", icon: UserIcon },
 ];
 
 interface SidebarProps {
