@@ -43,7 +43,7 @@ export function Login() {
               type="text"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              className="mt-1 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy"
+              className="mt-1 min-h-11 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy"
               autoComplete="username"
             />
           </label>
@@ -53,7 +53,7 @@ export function Login() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy"
+              className="mt-1 min-h-11 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy"
               autoComplete="current-password"
             />
           </label>
@@ -65,7 +65,7 @@ export function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-60"
+            className="w-full min-h-10 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-60"
           >
             {submitting ? "Ingresando…" : "Ingresar"}
           </button>

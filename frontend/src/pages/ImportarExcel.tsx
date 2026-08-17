@@ -170,7 +170,7 @@ export function ImportarExcel() {
   const previewRows = (preview?.sheets ?? []).flatMap((sheet) => sheet.rows).slice(0, 50);
 
   const inputClass =
-    "mt-1 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy";
+    "mt-1 min-h-11 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy";
 
   return (
     <div className="space-y-8">
@@ -194,7 +194,7 @@ export function ImportarExcel() {
             type="button"
             onClick={() => void runPreview()}
             disabled={previewBusy || !file}
-            className="rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
+            className="min-h-10 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
           >
             {previewBusy ? "Analizando…" : "Previsualizar"}
           </button>
@@ -218,8 +218,8 @@ export function ImportarExcel() {
                 { label: "Con error", value: totals?.errors ?? 0 },
               ].map((item) => (
                 <div key={item.label} className="rounded-sm border border-navy/10 bg-paper p-3">
-                  <p className="text-xs text-ink-soft">{item.label}</p>
-                  <p className={`text-lg font-bold ${item.label === "Con error" && item.value > 0 ? "text-red-700" : ""}`}>
+                  <p className="truncate text-xs text-ink-soft">{item.label}</p>
+                  <p className={`truncate text-lg font-bold ${item.label === "Con error" && item.value > 0 ? "text-red-700" : ""}`}>
                     {item.value}
                   </p>
                 </div>
@@ -264,7 +264,7 @@ export function ImportarExcel() {
                 type="button"
                 onClick={() => void runApply()}
                 disabled={applyBusy}
-                className="inline-flex items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
+                className="inline-flex min-h-10 items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
               >
                 {applyBusy ? "Aplicando…" : "Aplicar importación"}
               </button>
@@ -343,7 +343,7 @@ export function ImportarExcel() {
               type="button"
               onClick={() => void runBulkPreview()}
               disabled={bulkBusy}
-              className="rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
+              className="min-h-10 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
             >
               {bulkBusy ? "Procesando…" : "Previsualizar"}
             </button>
@@ -378,7 +378,7 @@ export function ImportarExcel() {
               type="button"
               onClick={() => void runBulkApply()}
               disabled={bulkBusy || bulkPreviewResult.affected === 0}
-              className="inline-flex items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
+              className="inline-flex min-h-10 items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
             >
               {bulkBusy ? "Aplicando…" : "Aplicar cambios"}
             </button>

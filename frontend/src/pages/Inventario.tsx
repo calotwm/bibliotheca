@@ -49,7 +49,7 @@ function RowActions({ row, onEdit, onDelete }: RowActionsProps) {
       <button
         type="button"
         onClick={() => onEdit(row)}
-        className="rounded-sm p-1.5 text-ink-soft hover:bg-navy/5 hover:text-navy"
+        className="rounded-sm p-3 text-ink-soft hover:bg-navy/5 hover:text-navy lg:p-1.5"
         aria-label={`Editar ${row.title}`}
         title="Editar"
       >
@@ -58,7 +58,7 @@ function RowActions({ row, onEdit, onDelete }: RowActionsProps) {
       <button
         type="button"
         onClick={() => onDelete(row)}
-        className="rounded-sm p-1.5 text-ink-soft hover:bg-red-50 hover:text-red-700"
+        className="rounded-sm p-3 text-ink-soft hover:bg-red-50 hover:text-red-700 lg:p-1.5"
         aria-label={`Eliminar ${row.title}`}
         title="Eliminar"
       >
@@ -137,7 +137,7 @@ export function Inventario() {
   const resetPageOnFilterChange = () => setPage(1);
 
   const inputClass =
-    "w-full rounded-sm border border-navy/20 bg-cream px-3 py-2 text-sm outline-none focus:border-navy";
+    "min-h-11 w-full rounded-sm border border-navy/20 bg-cream px-3 py-2 text-sm outline-none focus:border-navy";
 
   return (
     <div className="space-y-4">
@@ -213,7 +213,7 @@ export function Inventario() {
             setFormError(null);
             setShowForm(true);
           }}
-          className="ml-auto inline-flex items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light"
+          className="ml-auto inline-flex min-h-10 items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light"
         >
           <PlusIcon className="h-4 w-4" />
           Nuevo libro
@@ -256,7 +256,7 @@ export function Inventario() {
               <button
                 type="button"
                 onClick={() => setPage((current) => current + 1)}
-                className="rounded-sm border border-navy/20 bg-cream px-4 py-2 text-sm font-medium text-navy hover:bg-navy/5"
+                className="min-h-10 rounded-sm border border-navy/20 bg-cream px-4 py-2 text-sm font-medium text-navy hover:bg-navy/5"
               >
                 Cargar más
               </button>

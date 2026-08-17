@@ -67,7 +67,7 @@ export function Dashboard() {
             key={card.label}
             className="rounded-sm border border-navy/10 bg-cream p-3"
           >
-            <p className="text-xs text-ink-soft">{card.label}</p>
+            <p className="truncate text-xs text-ink-soft">{card.label}</p>
             <p className="mt-1 truncate text-lg font-bold text-navy">{card.value}</p>
           </div>
         ))}
