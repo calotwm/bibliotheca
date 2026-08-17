@@ -146,5 +146,8 @@ describe("App routing", () => {
 
     await user.click(screen.getByText("Importar Excel"));
     expect(await screen.findByRole("heading", { name: "Importar Excel" })).toBeInTheDocument();
+
+    await user.click(screen.getByText("Precios"));
+    expect(await screen.findByRole("heading", { name: "Precios" })).toBeInTheDocument();
   });
 });
