@@ -115,7 +115,7 @@ describe("App routing", () => {
     localStorage.clear();
     renderApp(["/"]);
     expect(
-      await screen.findByRole("heading", { name: /Librería/ })
+      await screen.findByRole("heading", { name: /Ojo de Poeta/ })
     ).toBeInTheDocument();
   });
 

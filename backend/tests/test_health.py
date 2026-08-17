@@ -29,4 +29,4 @@ async def test_cors_preflight_allowlisted(client):
 
 
 def test_app_title():
-    assert app.title == "Librería"
+    assert app.title == "Ojo de Poeta - Libros"

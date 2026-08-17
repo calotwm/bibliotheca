@@ -1,1 +1,1 @@
-"""Pydantic schemas for the Librería API."""
+"""Pydantic schemas for the Ojo de Poeta - Libros API."""

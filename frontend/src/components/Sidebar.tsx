@@ -78,9 +78,9 @@ export function Sidebar({
         } lg:translate-x-0 ${collapsed ? "lg:w-16" : "lg:w-64"}`}
       >
         <div className="flex h-14 items-center gap-2 px-3">
-          <span className="font-heading text-xl font-black">B</span>
+          <span className="font-heading text-xl font-black">O</span>
           <span className={`font-heading text-lg font-black ${labelClass}`}>
-            Librería
+            Ojo de Poeta - Libros
           </span>
           <button
             type="button"

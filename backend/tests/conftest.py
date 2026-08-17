@@ -1,4 +1,4 @@
-"""Pytest fixtures for the Librería backend test suite."""
+"""Pytest fixtures for the Ojo de Poeta - Libros backend test suite."""
 
 import os
 from pathlib import Path

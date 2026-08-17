@@ -32,7 +32,7 @@ export function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper p-4">
       <div className="w-full max-w-sm rounded-sm border border-navy/10 bg-cream p-6 shadow-lg">
-        <h1 className="text-2xl font-black">Librería</h1>
+        <h1 className="text-2xl font-black">Ojo de Poeta - Libros</h1>
         <p className="mt-1 text-sm text-ink-soft">
           Inicie sesión para continuar
         </p>

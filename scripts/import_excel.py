@@ -88,7 +88,7 @@ async def main(path: Path, apply: bool) -> int:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Import the Librería Excel catalog locally"
+        description="Import the Ojo de Poeta - Libros Excel catalog locally"
     )
     parser.add_argument("file", nargs="?", type=Path, default=DEFAULT_FILE)
     parser.add_argument("--apply", action="store_true")

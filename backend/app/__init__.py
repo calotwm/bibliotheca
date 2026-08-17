@@ -1,1 +1,1 @@
-"""Librería backend application package."""
+"""Ojo de Poeta - Libros backend application package."""

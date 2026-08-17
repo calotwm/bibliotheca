@@ -21,7 +21,7 @@ export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
-  const title = PAGE_TITLES[location.pathname] ?? "Librería";
+  const title = PAGE_TITLES[location.pathname] ?? "Ojo de Poeta - Libros";
 
   useEffect(() => {
     setMobileOpen(false);

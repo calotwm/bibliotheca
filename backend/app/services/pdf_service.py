@@ -91,7 +91,7 @@ def build_invoice_pdf(sale: Sale) -> bytes:
     pdf.add_page()
 
     # --- Business header --------------------------------------------------
-    business_name = _latin1(settings.business_name.strip() or "Librería")
+    business_name = _latin1(settings.business_name.strip() or "Ojo de Poeta - Libros")
     pdf.set_font("helvetica", "B", 18)
     pdf.cell(USABLE_WIDTH, 10, business_name, new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("helvetica", "", 10)
