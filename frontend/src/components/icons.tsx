@@ -58,6 +58,15 @@ export function UsersIcon({ className }: IconProps) {
   );
 }
 
+export function UserIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    </Icon>
+  );
+}
+
 export function ChartIcon({ className }: IconProps) {
   return (
     <Icon className={className}>

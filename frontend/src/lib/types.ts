@@ -3,6 +3,16 @@ export interface UserInfo {
   role: string;
 }
 
+export interface AccountInfo extends UserInfo {
+  id: number;
+}
+
+export interface AccountUpdatePayload {
+  current_password: string;
+  new_username?: string | null;
+  new_password?: string | null;
+}
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;
