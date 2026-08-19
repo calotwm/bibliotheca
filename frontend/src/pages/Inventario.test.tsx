@@ -31,6 +31,22 @@ function renderPage() {
   );
 }
 
+const sampleBook = {
+  id: 1,
+  title: "Rayuela",
+  author: "Julio Cortázar",
+  editorial: "Sudamericana",
+  category_id: 1,
+  category_name: "Novela",
+  price: "12.50",
+  stock: 3,
+  isbn: null,
+  genre: null,
+  source_sheet: null,
+  is_active: true,
+  stock_status: "In Stock",
+};
+
 describe("Inventario", () => {
   beforeEach(() => {
     vi.mocked(booksApi.listBooks).mockResolvedValue([]);
@@ -99,5 +115,61 @@ describe("Inventario", () => {
     expect(screen.getAllByText("Sin stock").length).toBeGreaterThan(0);
     expect(screen.getByText("Disponible")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
+  it("sends sort_by/sort_dir when clicking a sortable column header", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    const user = userEvent.setup();
+    renderPage();
+
+    const titleHeader = await screen.findByRole("button", { name: /título/i });
+    await user.click(titleHeader);
+
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "title", sort_dir: "asc" })
+      );
+    });
+  });
+
+  it("toggles sort direction asc -> desc when clicking the same header again", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    const user = userEvent.setup();
+    renderPage();
+
+    const titleHeader = await screen.findByRole("button", { name: /título/i });
+    await user.click(titleHeader);
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "title", sort_dir: "asc" })
+      );
+    });
+
+    await user.click(await screen.findByRole("button", { name: /título/i }));
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "title", sort_dir: "desc" })
+      );
+    });
+  });
+
+  it("sorts by a new column with asc default after switching", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /título/i }));
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "title", sort_dir: "asc" })
+      );
+    });
+
+    await user.click(await screen.findByRole("button", { name: /precio/i }));
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "price", sort_dir: "asc" })
+      );
+    });
   });
 });
