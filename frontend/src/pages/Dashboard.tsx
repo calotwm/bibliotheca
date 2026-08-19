@@ -75,8 +75,8 @@ export function Dashboard() {
 
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-lg font-bold">Stock bajo</h2>
-          <Link to="/inventario?stock_status=Low" className="text-sm text-accent hover:underline">
+          <h2 className="text-lg font-bold">Sin stock</h2>
+          <Link to="/inventario?stock_status=Out" className="text-sm text-accent hover:underline">
             Ver inventario
           </Link>
         </div>
@@ -84,7 +84,7 @@ export function Dashboard() {
           columns={lowStockColumns}
           rows={data.low_stock}
           getRowKey={(row) => row.book_id}
-          emptyMessage="Sin alertas de stock bajo."
+          emptyMessage="Sin libros sin stock."
         />
       </section>
 
