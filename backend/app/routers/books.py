@@ -41,11 +41,13 @@ def _to_read(book: Book) -> BookRead:
 
 
 def _stock_status_condition(stock_status: str):
-    threshold = _settings.low_stock_threshold
     if stock_status == STOCK_IN_STOCK:
-        return Book.stock > threshold
+        return Book.stock > 0
     if stock_status == STOCK_LOW:
-        return and_(Book.stock > 0, Book.stock <= threshold)
+        # The low-stock tier was removed. Keep accepting the value for
+        # backward compatibility but never match: old clients asking for
+        # "Low Stock" get an empty result instead of a 400.
+        return Book.stock < 0
     if stock_status == STOCK_OUT:
         return Book.stock == 0
     return None
@@ -58,6 +60,7 @@ async def list_books(
     session: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[User, Depends(require_user)],
     q: str | None = None,
+    title: str | None = None,
     category_id: int | None = None,
     stock_status: str | None = None,
     author: str | None = None,
@@ -78,6 +81,10 @@ async def list_books(
                 func.lower(Book.author).like(like),
                 func.lower(Book.editorial).like(like),
             )
+        )
+    if title:
+        query = query.where(
+            func.lower(Book.title).like(f"%{title.lower()}%")
         )
     if category_id is not None:
         query = query.where(Book.category_id == category_id)

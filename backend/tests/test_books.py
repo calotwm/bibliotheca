@@ -37,7 +37,7 @@ async def test_create_book(auth_headers, session, client):
     assert response.status_code == 201
     data = response.json()
     assert data["title"] == "Rayuela"
-    assert data["stock_status"] == "Low"
+    assert data["stock_status"] == "In Stock"
     assert data["category_name"] == "Novela"
 
 
@@ -143,6 +143,96 @@ async def test_list_books_filters(auth_headers, session, client):
     by_status = await client.get("/api/books?stock_status=Out", headers=auth_headers)
     assert len(by_status.json()) == 1
     assert by_status.json()[0]["title"] == "Rayuela"
+
+
+async def test_list_books_title_filter(auth_headers, session, client):
+    novela = await _category_id(session, "Novela")
+    poesia = await _category_id(session, "Poesía")
+    await client.post(
+        "/api/books", json=_book_payload(novela, title="Rayuela"), headers=auth_headers
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(poesia, title="Rayuela de los sueños"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(poesia, title="Ficciones", author="Borges"),
+        headers=auth_headers,
+    )
+
+    by_title = await client.get("/api/books?title=ray", headers=auth_headers)
+    titles = [book["title"] for book in by_title.json()]
+    assert sorted(titles) == ["Rayuela", "Rayuela de los sueños"]
+
+    by_title = await client.get("/api/books?title=Ficciones", headers=auth_headers)
+    assert len(by_title.json()) == 1
+    assert by_title.json()[0]["title"] == "Ficciones"
+
+
+async def test_list_books_title_combined_with_author_and_editorial(
+    auth_headers, session, client
+):
+    novela = await _category_id(session, "Novela")
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Rayuela", author="Julio Cortázar",
+                           editorial="Sudamericana"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Rayuela", author="Julio Cortázar",
+                           editorial="Planeta"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Rayuela", author="Otro Autor",
+                           editorial="Sudamericana"),
+        headers=auth_headers,
+    )
+
+    # Pick an editorial, then narrow by author within it.
+    url = "/api/books?title=rayuela&author=cort%C3%A1zar&editorial=sudamericana"
+    response = await client.get(url, headers=auth_headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert len(result) == 1
+    assert result[0]["editorial"] == "Sudamericana"
+    assert result[0]["author"] == "Julio Cortázar"
+
+
+async def test_list_books_low_stock_returns_empty(auth_headers, session, client):
+    novela = await _category_id(session, "Novela")
+    await client.post(
+        "/api/books", json=_book_payload(novela, title="A", stock=1), headers=auth_headers
+    )
+    await client.post(
+        "/api/books", json=_book_payload(novela, title="B", stock=5), headers=auth_headers
+    )
+
+    # Old clients asking for "Low" get an empty result (never 400).
+    response = await client.get("/api/books?stock_status=Low", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_list_books_in_stock_includes_single_unit(auth_headers, session, client):
+    novela = await _category_id(session, "Novela")
+    await client.post(
+        "/api/books", json=_book_payload(novela, title="SoloUno", stock=1),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books", json=_book_payload(novela, title="Vacio", stock=0),
+        headers=auth_headers,
+    )
+
+    response = await client.get("/api/books?stock_status=In%20Stock", headers=auth_headers)
+    titles = [book["title"] for book in response.json()]
+    assert titles == ["SoloUno"]
 
 
 async def test_soft_delete_hides_from_list(auth_headers, session, client):
