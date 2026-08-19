@@ -308,3 +308,78 @@ async def test_audit_logged_on_book_update(auth_headers, session, client):
     ).scalars().all()
     assert len(logs) == 1
     assert logs[0].changes_json["stock"] == {"old": "3", "new": "7"}
+
+
+async def _seed_sort_books(auth_headers, session, client):
+    novela = await _category_id(session, "Novela")
+    poesia = await _category_id(session, "Poesía")
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Zorro", author="Ana", editorial="Beta",
+                           price="10.00", stock=5),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(poesia, title="Amor", author="Bruno", editorial="Alfa",
+                           price="2.00", stock=1),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Casa", author="Carla", editorial="Gamma",
+                           price="15.00", stock=0),
+        headers=auth_headers,
+    )
+    return novela, poesia
+
+
+async def test_list_books_sort_title_asc_and_desc(auth_headers, session, client):
+    await _seed_sort_books(auth_headers, session, client)
+    asc = await client.get("/api/books?sort_by=title", headers=auth_headers)
+    assert [b["title"] for b in asc.json()] == ["Amor", "Casa", "Zorro"]
+    desc = await client.get("/api/books?sort_by=title&sort_dir=desc", headers=auth_headers)
+    assert [b["title"] for b in desc.json()] == ["Zorro", "Casa", "Amor"]
+
+
+async def test_list_books_sort_author_and_editorial(auth_headers, session, client):
+    await _seed_sort_books(auth_headers, session, client)
+    by_author = await client.get("/api/books?sort_by=author", headers=auth_headers)
+    assert [b["author"] for b in by_author.json()] == ["Ana", "Bruno", "Carla"]
+    by_editorial = await client.get("/api/books?sort_by=editorial", headers=auth_headers)
+    assert [b["editorial"] for b in by_editorial.json()] == ["Alfa", "Beta", "Gamma"]
+
+
+async def test_list_books_sort_price_numeric(auth_headers, session, client):
+    await _seed_sort_books(auth_headers, session, client)
+    response = await client.get("/api/books?sort_by=price", headers=auth_headers)
+    # Numeric ordering: 2 before 10 (lexicographic would put 10 first).
+    assert [b["title"] for b in response.json()] == ["Amor", "Zorro", "Casa"]
+
+
+async def test_list_books_sort_stock_desc(auth_headers, session, client):
+    await _seed_sort_books(auth_headers, session, client)
+    response = await client.get("/api/books?sort_by=stock&sort_dir=desc", headers=auth_headers)
+    assert [b["stock"] for b in response.json()] == [5, 1, 0]
+
+
+async def test_list_books_sort_invalid_sort_by(auth_headers, session, client):
+    response = await client.get("/api/books?sort_by=isbn", headers=auth_headers)
+    assert response.status_code == 400
+    assert "title" in response.json()["detail"]
+
+
+async def test_list_books_sort_invalid_sort_dir(auth_headers, session, client):
+    response = await client.get("/api/books?sort_by=title&sort_dir=sideways", headers=auth_headers)
+    assert response.status_code == 400
+    assert "sort_dir" in response.json()["detail"]
+
+
+async def test_list_books_sort_combined_with_filter(auth_headers, session, client):
+    await _seed_sort_books(auth_headers, session, client)
+    # Filter by editorial, then sort by price numerically.
+    response = await client.get(
+        "/api/books?editorial=beta&sort_by=price&sort_dir=asc", headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert [b["title"] for b in response.json()] == ["Zorro"]

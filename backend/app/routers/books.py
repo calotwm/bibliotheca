@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from ..config import get_settings
 from ..db import get_session
-from ..models import Book, User
+from ..models import Book, Category, User
 from ..schemas.book import BookCreate, BookRead, BookUpdate
 from ..security.deps import require_admin, require_user
 from ..security.limiter import limiter
@@ -20,6 +20,23 @@ from ..services.stock import STOCK_IN_STOCK, STOCK_LOW, STOCK_OUT, compute_stock
 router = APIRouter(prefix="/api/books", tags=["books"])
 
 _settings = get_settings()
+
+SORT_FIELDS = ("title", "author", "editorial", "category", "price", "stock")
+SORT_DIRS = ("asc", "desc")
+
+
+def _sort_expression(sort_by: str):
+    """Map a sort_by value to a SQLAlchemy ordering expression.
+
+    Text columns are lower-cased so A-Z ordering is natural and matches the
+    existing case-insensitive filter conventions. Category orders by the
+    related category name via an explicit join.
+    """
+    if sort_by == "category":
+        return func.lower(Category.name)
+    if sort_by in ("title", "author", "editorial"):
+        return func.lower(getattr(Book, sort_by))
+    return getattr(Book, sort_by)
 
 
 def _to_read(book: Book) -> BookRead:
@@ -65,9 +82,22 @@ async def list_books(
     stock_status: str | None = None,
     author: str | None = None,
     editorial: str | None = None,
+    sort_by: str | None = None,
+    sort_dir: str = "asc",
     page: int = 1,
     page_size: int = 100,
 ) -> list[BookRead]:
+    if sort_by is not None and sort_by not in SORT_FIELDS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid sort_by: {sort_by!r}; expected one of {list(SORT_FIELDS)}",
+        )
+    if sort_dir not in SORT_DIRS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid sort_dir: {sort_dir!r}; expected 'asc' or 'desc'",
+        )
+
     query = (
         select(Book)
         .options(selectinload(Book.category))
@@ -104,8 +134,17 @@ async def list_books(
             )
         query = query.where(condition)
 
+    if sort_by == "category":
+        query = query.join(Book.category)
+
+    if sort_by is None:
+        order_col = func.lower(Book.title)
+    else:
+        order_col = _sort_expression(sort_by)
+    order_col = order_col.desc() if sort_dir == "desc" else order_col.asc()
+
     query = (
-        query.order_by(Book.title)
+        query.order_by(order_col)
         .offset(max(0, page - 1) * page_size)
         .limit(page_size)
     )
