@@ -218,7 +218,7 @@ async def test_top_sellers_requires_auth(client):
 
 async def test_inventory_status_counts_and_value(auth_headers, session, client):
     await _seed_book(session, title="Out", stock=0, price="1.00")
-    await _seed_book(session, title="Low", stock=3, price="10.00")
+    await _seed_book(session, title="Single", stock=3, price="10.00")
     await _seed_book(session, title="In", stock=10, price="5.00")
 
     response = await client.get("/api/reports/inventory", headers=auth_headers)
@@ -229,7 +229,8 @@ async def test_inventory_status_counts_and_value(auth_headers, session, client):
     assert data["stock_value"] == "80.00"
     assert data["threshold"] == 5
     assert data["category_id"] is None
-    assert data["status_counts"] == {"In Stock": 1, "Low": 1, "Out": 1}
+    # Binary states only: a single unit is In Stock, no low-stock bucket.
+    assert data["status_counts"] == {"In Stock": 2, "Out": 1}
 
 
 async def test_inventory_category_filter(auth_headers, session, client):
@@ -246,7 +247,7 @@ async def test_inventory_category_filter(auth_headers, session, client):
     assert data["total_books"] == 1
     assert data["total_units"] == 0
     assert data["category_id"] == cid
-    assert data["status_counts"] == {"In Stock": 0, "Low": 0, "Out": 1}
+    assert data["status_counts"] == {"In Stock": 0, "Out": 1}
 
 
 async def test_inventory_requires_auth(client):
@@ -354,10 +355,12 @@ async def test_dashboard_low_stock_list_and_out_of_stock(auth_headers, session, 
     response = await client.get("/api/dashboard", headers=auth_headers)
     data = response.json()
     assert data["out_of_stock_count"] == 1
+    # The former low-stock list now surfaces only out-of-stock books; any book
+    # with stock 1..N must be excluded.
     titles = [item["title"] for item in data["low_stock"]]
-    assert titles == ["Low1", "Low2"]
-    assert all(item["stock_status"] == "Low" for item in data["low_stock"])
-    assert data["low_stock"][0]["stock"] == 2
+    assert titles == ["Out"]
+    assert all(item["stock_status"] == "Out" for item in data["low_stock"])
+    assert data["low_stock"][0]["stock"] == 0
 
 
 async def test_dashboard_recent_sales_limited_to_10(auth_headers, session, client):
