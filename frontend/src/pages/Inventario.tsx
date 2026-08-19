@@ -18,15 +18,19 @@ const columns: Column<Book>[] = [
   {
     key: "title",
     header: "Título",
+    sortable: true,
+    sortKey: "title",
     render: (row) => <span className="font-medium">{row.title}</span>,
   },
-  { key: "author", header: "Autor", render: (row) => row.author },
-  { key: "editorial", header: "Editorial", render: (row) => row.editorial },
+  { key: "author", header: "Autor", sortable: true, sortKey: "author", render: (row) => row.author },
+  { key: "editorial", header: "Editorial", sortable: true, sortKey: "editorial", render: (row) => row.editorial },
   { key: "category_name", header: "Categoría", render: (row) => row.category_name ?? "—" },
-  { key: "price", header: "Precio", render: (row) => <span className="font-semibold">{formatARS(row.price)}</span> },
+  { key: "price", header: "Precio", sortable: true, sortKey: "price", render: (row) => <span className="font-semibold">{formatARS(row.price)}</span> },
   {
     key: "stock",
     header: "Stock",
+    sortable: true,
+    sortKey: "stock",
     render: (row) =>
       row.stock === 0 ? (
         <span className="text-xs font-semibold text-red-700">Sin stock</span>
@@ -79,6 +83,8 @@ export function Inventario() {
   const [editorial, setEditorial] = useState("");
   const [debouncedEditorial, setDebouncedEditorial] = useState("");
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [editing, setEditing] = useState<Book | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deleting, setDeleting] = useState<Book | null>(null);
@@ -105,7 +111,7 @@ export function Inventario() {
   });
 
   const { data: books = [], isLoading, isError, error } = useQuery({
-    queryKey: ["books", debouncedTitle, categoryId, stockStatus, debouncedAuthor, debouncedEditorial, page],
+    queryKey: ["books", debouncedTitle, categoryId, stockStatus, debouncedAuthor, debouncedEditorial, sortBy, sortDir, page],
     queryFn: () =>
       booksApi.listBooks({
         title: debouncedTitle || undefined,
@@ -113,6 +119,8 @@ export function Inventario() {
         stock_status: stockStatus || null,
         author: debouncedAuthor || null,
         editorial: debouncedEditorial || null,
+        sort_by: sortBy || null,
+        sort_dir: sortDir || null,
         page,
         page_size: PAGE_SIZE,
       }),
@@ -146,6 +154,16 @@ export function Inventario() {
   });
 
   const resetPageOnFilterChange = () => setPage(1);
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+    resetPageOnFilterChange();
+  };
 
   const inputClass =
     "min-h-11 w-full rounded-sm border border-navy/20 bg-cream px-3 py-2 text-sm outline-none focus:border-navy";
@@ -262,6 +280,9 @@ export function Inventario() {
             rows={books}
             getRowKey={(row) => row.id}
             emptyMessage="No se encontraron libros con esos filtros."
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
           {books.length === page * PAGE_SIZE && (
             <div className="text-center">

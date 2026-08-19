@@ -5,6 +5,8 @@ export interface Column<T> {
   header: string;
   render: (row: T) => ReactNode;
   className?: string;
+  sortable?: boolean;
+  sortKey?: string;
 }
 
 interface DataTableProps<T> {
@@ -12,6 +14,9 @@ interface DataTableProps<T> {
   rows: T[];
   getRowKey?: (row: T) => string | number;
   emptyMessage?: string;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  onSort?: (key: string) => void;
 }
 
 export function DataTable<T>({
@@ -19,6 +24,9 @@ export function DataTable<T>({
   rows,
   getRowKey,
   emptyMessage = "Sin datos",
+  sortBy,
+  sortDir,
+  onSort,
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return <p className="py-6 text-center text-sm text-ink-soft">{emptyMessage}</p>;
@@ -28,11 +36,31 @@ export function DataTable<T>({
       <table className="w-full min-w-[640px] text-left text-sm">
         <thead className="bg-navy text-cream">
           <tr>
-            {columns.map((column) => (
-              <th key={column.key} className="px-3 py-2.5 font-medium">
-                {column.header}
-              </th>
-            ))}
+            {columns.map((column) => {
+              const sortKey = column.sortKey ?? column.key;
+              const active = onSort && column.sortable && sortBy === sortKey;
+              return (
+                <th
+                  key={column.key}
+                  className="px-3 py-2.5 font-medium"
+                >
+                  {column.sortable && onSort ? (
+                    <button
+                      type="button"
+                      onClick={() => onSort(sortKey)}
+                      className="inline-flex items-center gap-1 text-left hover:underline"
+                    >
+                      {column.header}
+                      <span aria-hidden="true" className="text-xs">
+                        {active ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                      </span>
+                    </button>
+                  ) : (
+                    column.header
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody className="divide-y divide-navy/10">
