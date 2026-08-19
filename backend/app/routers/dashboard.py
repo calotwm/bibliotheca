@@ -71,8 +71,7 @@ async def dashboard(
             select(Book)
             .where(
                 Book.is_active.is_(True),
-                Book.stock > 0,
-                Book.stock <= threshold,
+                Book.stock == 0,
             )
             .order_by(Book.stock, Book.title)
             .limit(low_stock_limit)

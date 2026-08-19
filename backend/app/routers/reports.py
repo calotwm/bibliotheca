@@ -11,7 +11,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
@@ -28,7 +28,7 @@ from ..schemas.reports import (
 )
 from ..security.deps import require_user
 from ..security.limiter import limiter
-from ..services.stock import STOCK_IN_STOCK, STOCK_LOW, STOCK_OUT
+from ..services.stock import STOCK_IN_STOCK, STOCK_OUT
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -206,10 +206,13 @@ async def inventory_report(
     user: Annotated[User, Depends(require_user)],
     category_id: int | None = None,
 ) -> InventoryReport:
-    """Stock value and per-status counts for active books (optionally by category)."""
+    """Stock value and per-status counts for active books (optionally by category).
+
+    Only the binary states are reported: In Stock (``stock > 0``) and
+    Out of Stock (``stock == 0``). The former low-stock bucket is omitted.
+    """
     threshold = _settings.low_stock_threshold
-    in_condition = Book.stock > threshold
-    low_condition = and_(Book.stock > 0, Book.stock <= threshold)
+    in_condition = Book.stock > 0
     out_condition = Book.stock == 0
 
     query = select(
@@ -217,13 +220,12 @@ async def inventory_report(
         func.coalesce(func.sum(Book.stock), 0),
         func.coalesce(func.sum(Book.price * Book.stock), 0),
         func.coalesce(func.sum(case((in_condition, 1), else_=0)), 0),
-        func.coalesce(func.sum(case((low_condition, 1), else_=0)), 0),
         func.coalesce(func.sum(case((out_condition, 1), else_=0)), 0),
     ).where(Book.is_active.is_(True))
     if category_id is not None:
         query = query.where(Book.category_id == category_id)
 
-    total_books, total_units, stock_value, in_stock, low, out = (
+    total_books, total_units, stock_value, in_stock, out = (
         await session.execute(query)
     ).one()
     return InventoryReport(
@@ -232,7 +234,6 @@ async def inventory_report(
         stock_value=_money(stock_value),
         status_counts={
             STOCK_IN_STOCK: in_stock,
-            STOCK_LOW: low,
             STOCK_OUT: out,
         },
         threshold=threshold,

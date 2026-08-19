@@ -6,7 +6,6 @@ import { listCategories } from "../api/categories";
 import { BookFormModal } from "../components/BookFormModal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
-import { StatusBadge } from "../components/StatusBadge";
 import { PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "../components/icons";
 import { STOCK_FILTERS } from "../lib/constants";
 import { formatARS } from "../lib/format";
@@ -28,12 +27,12 @@ const columns: Column<Book>[] = [
   {
     key: "stock",
     header: "Stock",
-    render: (row) => (
-      <div className="flex items-center gap-2">
-        <StatusBadge status={row.stock_status} />
+    render: (row) =>
+      row.stock === 0 ? (
+        <span className="text-xs font-semibold text-red-700">Sin stock</span>
+      ) : (
         <span className="text-xs text-ink-soft">{row.stock}</span>
-      </div>
-    ),
+      ),
   },
 ];
 
@@ -71,12 +70,14 @@ function RowActions({ row, onEdit, onDelete }: RowActionsProps) {
 export function Inventario() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
+  const [title, setTitle] = useState("");
+  const [debouncedTitle, setDebouncedTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [stockStatus, setStockStatus] = useState(searchParams.get("stock_status") ?? "");
   const [author, setAuthor] = useState("");
+  const [debouncedAuthor, setDebouncedAuthor] = useState("");
   const [editorial, setEditorial] = useState("");
+  const [debouncedEditorial, setDebouncedEditorial] = useState("");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Book | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -84,9 +85,19 @@ export function Inventario() {
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQ(q), 300);
+    const timer = setTimeout(() => setDebouncedTitle(title), 300);
     return () => clearTimeout(timer);
-  }, [q]);
+  }, [title]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedAuthor(author), 300);
+    return () => clearTimeout(timer);
+  }, [author]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedEditorial(editorial), 300);
+    return () => clearTimeout(timer);
+  }, [editorial]);
 
   const { data: categories } = useQuery({
     queryKey: ["categories"],
@@ -94,14 +105,14 @@ export function Inventario() {
   });
 
   const { data: books = [], isLoading, isError, error } = useQuery({
-    queryKey: ["books", debouncedQ, categoryId, stockStatus, author, editorial, page],
+    queryKey: ["books", debouncedTitle, categoryId, stockStatus, debouncedAuthor, debouncedEditorial, page],
     queryFn: () =>
       booksApi.listBooks({
-        q: debouncedQ || undefined,
+        title: debouncedTitle || undefined,
         category_id: categoryId ? Number(categoryId) : null,
         stock_status: stockStatus || null,
-        author: author || null,
-        editorial: editorial || null,
+        author: debouncedAuthor || null,
+        editorial: debouncedEditorial || null,
         page,
         page_size: PAGE_SIZE,
       }),
@@ -146,13 +157,14 @@ export function Inventario() {
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
           <input
             type="search"
-            value={q}
+            value={title}
             onChange={(event) => {
-              setQ(event.target.value);
+              setTitle(event.target.value);
               resetPageOnFilterChange();
             }}
-            placeholder="Buscar por título, autor o editorial…"
+            placeholder="Buscar por título…"
             className={`${inputClass} pl-9`}
+            aria-label="Filtrar por título"
           />
         </div>
         <select

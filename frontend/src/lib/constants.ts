@@ -11,7 +11,6 @@ export const STOCK_LABELS: Record<string, string> = {
 export const STOCK_FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Todos los estados" },
   { value: STOCK_IN_STOCK, label: STOCK_LABELS[STOCK_IN_STOCK] },
-  { value: STOCK_LOW, label: STOCK_LABELS[STOCK_LOW] },
   { value: STOCK_OUT, label: STOCK_LABELS[STOCK_OUT] },
 ];
 
