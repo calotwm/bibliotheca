@@ -52,11 +52,17 @@ const sampleBook = {
   stock_status: "In Stock",
 };
 
+function makeBook(id: number): typeof sampleBook {
+  return { ...sampleBook, id, title: `Libro ${id}` };
+}
+
 describe("Precios", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    vi.mocked(booksApi.listBooks).mockImplementation(async (filters = {}) =>
+      filters.page_size === 300 ? [sampleBook] : []
+    );
     vi.mocked(categoriesApi.listCategories).mockResolvedValue([
       { id: 1, name: "Ficción" },
     ]);
@@ -179,5 +185,121 @@ describe("Precios", () => {
     expect(previewButton).toBeDisabled();
     await user.click(previewButton);
     expect(importApi.bulkPreview).not.toHaveBeenCalled();
+  });
+
+  it("renders the read-only book list above the bulk form", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    renderPrecios();
+    expect(
+      screen.getByRole("heading", { name: "Listado de libros" })
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Libro A")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Ajuste de precios por editorial" })
+    ).toBeInTheDocument();
+  });
+
+  it("sends combined author and editorial filters with AND semantics", async () => {
+    const user = userEvent.setup();
+    renderPrecios();
+    const authorInput = screen.getByLabelText("Filtrar por autor");
+    const editorialInput = screen.getByLabelText("Filtrar por editorial");
+    await user.type(authorInput, "Borges");
+    await user.type(editorialInput, "Alpha");
+
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ author: "Borges", editorial: "Alpha" })
+      );
+    });
+  });
+
+  it("toggles sort direction asc -> desc on the Título column", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    const user = userEvent.setup();
+    renderPrecios();
+
+    const titleHeader = await screen.findByRole("button", { name: /título/i });
+    await user.click(titleHeader);
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "title", sort_dir: "asc" })
+      );
+    });
+
+    await user.click(await screen.findByRole("button", { name: /título/i }));
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "title", sort_dir: "desc" })
+      );
+    });
+  });
+
+  it("appends the next page when Cargar más is clicked", async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => makeBook(i + 1));
+    const page2 = [makeBook(101)];
+    vi.mocked(booksApi.listBooks).mockImplementation(async (filters = {}) => {
+      if (filters.page_size === 300) return [sampleBook];
+      return filters.page === 2 ? page2 : page1;
+    });
+    const user = userEvent.setup();
+    renderPrecios();
+
+    await screen.findByText("Libro 1");
+    await user.click(screen.getByRole("button", { name: "Cargar más" }));
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 2 })
+      );
+    });
+    expect(await screen.findByText("Libro 101")).toBeInTheDocument();
+  });
+
+  it("shows the read-only list to cashiers while the bulk form stays admin-gated", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    renderPrecios("cashier");
+
+    expect(
+      screen.getByRole("heading", { name: "Listado de libros" })
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Libro A")).toBeInTheDocument();
+    expect(
+      screen.getByText("Solo administradores pueden modificar precios.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Previsualizar" })
+    ).toBeDisabled();
+    expect(screen.queryByLabelText(/Editar|Eliminar/)).not.toBeInTheDocument();
+  });
+
+  it("resets to page 1 when a filter changes after loading more", async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => makeBook(i + 1));
+    const page2 = [makeBook(101)];
+    vi.mocked(booksApi.listBooks).mockImplementation(async (filters = {}) => {
+      if (filters.page_size === 300) return [sampleBook];
+      return filters.page === 2 ? page2 : page1;
+    });
+    const user = userEvent.setup();
+    renderPrecios();
+
+    await screen.findByText("Libro 1");
+    await user.click(screen.getByRole("button", { name: "Cargar más" }));
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 2 })
+      );
+    });
+    expect(await screen.findByText("Libro 101")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Filtrar por autor"), "Borges");
+
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 1, author: "Borges" })
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("Libro 101")).not.toBeInTheDocument();
+    });
   });
 });
