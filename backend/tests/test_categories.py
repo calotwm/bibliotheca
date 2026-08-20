@@ -9,11 +9,17 @@ from app.security.password import hash_password
 from app.models import User
 
 
-async def test_seed_creates_six_categories(session):
+def test_default_categories_includes_nine():
+    assert len(DEFAULT_CATEGORIES) == 9
+    assert {"Ensayo", "Teatro", "Biografía"} <= set(DEFAULT_CATEGORIES)
+
+
+async def test_seed_creates_all_default_categories(session):
     await seed_categories(session)
     names = set((await session.execute(select(Category.name))).scalars().all())
     assert names == set(DEFAULT_CATEGORIES)
-    assert len(names) == 6
+    assert len(names) == len(DEFAULT_CATEGORIES)
+    assert {"Ensayo", "Teatro", "Biografía"} <= names
 
 
 async def test_seed_is_idempotent(session):
@@ -22,7 +28,7 @@ async def test_seed_is_idempotent(session):
     count = (
         await session.execute(select(Category).where(Category.name.in_(DEFAULT_CATEGORIES)))
     ).scalars().all()
-    assert len(count) == 6
+    assert len(count) == len(DEFAULT_CATEGORIES)
 
 
 async def test_list_categories_requires_auth(client):
@@ -35,7 +41,7 @@ async def test_list_categories(auth_headers, session, client):
     response = await client.get("/api/categories", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 6
+    assert len(data) == len(DEFAULT_CATEGORIES)
     assert {c["name"] for c in data} == set(DEFAULT_CATEGORIES)
 
 

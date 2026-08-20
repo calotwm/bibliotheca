@@ -23,13 +23,27 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from pathlib import Path
+from typing import Iterable
 
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 
-from .normalizer import DEFAULT_CATEGORIES, category_for_sheet, is_header_row
+from .normalizer import (
+    DEFAULT_CATEGORIES,
+    GENRE_FALLBACK_CATEGORY,
+    SKIP_SHEETS,
+    category_for_genre,
+    category_for_sheet,
+    has_genre_column,
+    is_header_row,
+    normalize_sheet_name,
+)
 
 HEADER_COLUMNS = ["title", "author", "editorial", "price", "stock"]
+# Genre-layout header sheets carry a GÉNERO column at position 3 and EDITORIAL
+# at position 4 (CATÁLOGO COMPLETO): ``TÍTULO | AUTOR | GÉNERO | EDITORIAL |
+# PRECIO(S) | STOCK``.
+GENRE_LAYOUT_COLUMNS = ["title", "author", "genre", "editorial", "price", "stock"]
 OPORTUNIDADES_COLUMNS = ["title", "author", "genre", "editorial", "stock", "price"]
 # Only the leading columns are meaningful; trailing empty columns (this file
 # reports max_column 24 on some sheets) must not be parsed as data.
@@ -73,6 +87,7 @@ class ParsedSheet:
     name: str
     category: str | None
     has_header: bool
+    genre_driven: bool = False
     rows: list[ParsedRow] = field(default_factory=list)
 
 
@@ -160,6 +175,9 @@ def _build_row(
     columns: list[str],
     cells: list,
     row_number: int,
+    *,
+    genre_driven: bool = False,
+    available_categories: Iterable[str] = (),
 ) -> ParsedRow:
     values = dict(zip(columns, cells))
     title_raw = values.get("title")
@@ -201,12 +219,18 @@ def _build_row(
         errors.append("Missing stock")
     elif stock is None:
         errors.append(f"Invalid stock {stock_raw!r}")
-    if category is None:
+
+    if genre_driven:
+        resolved = category_for_genre(genre, available_categories)
+        row_category = resolved if resolved is not None else GENRE_FALLBACK_CATEGORY
+    else:
+        row_category = category
+    if row_category is None:
         errors.append(f"No category mapped for sheet {sheet_name!r}")
 
     return ParsedRow(
         sheet=sheet_name,
-        category=category,
+        category=row_category,
         title=title or "",
         author=author or "",
         editorial=editorial or "",
@@ -218,7 +242,9 @@ def _build_row(
     )
 
 
-def _parse_sheet(worksheet, category: str | None) -> ParsedSheet:
+def _parse_sheet(
+    worksheet, category: str | None, available_categories: Iterable[str]
+) -> ParsedSheet:
     iterator = worksheet.iter_rows(values_only=True)
     first = next(iterator, None)
     if first is None:
@@ -226,6 +252,7 @@ def _parse_sheet(worksheet, category: str | None) -> ParsedSheet:
 
     first_cleaned = [_clean(cell) for cell in first[:MAX_COLUMNS]]
     has_header = is_header_row(first_cleaned)
+    genre_driven = has_header and has_genre_column(first_cleaned)
     data_iterator = iterator if has_header else itertools.chain([first], iterator)
 
     rows: list[ParsedRow] = []
@@ -235,17 +262,31 @@ def _parse_sheet(worksheet, category: str | None) -> ParsedSheet:
         if all(cell is None for cell in cells):
             row_number += 1
             continue
-        if has_header:
+        if genre_driven:
+            columns = GENRE_LAYOUT_COLUMNS
+        elif has_header:
             columns = HEADER_COLUMNS
         else:
             columns = _columns_for_no_header_row(cells)
         rows.append(
-            _build_row(worksheet.title, category, columns, values[:MAX_COLUMNS], row_number)
+            _build_row(
+                worksheet.title,
+                category,
+                columns,
+                values[:MAX_COLUMNS],
+                row_number,
+                genre_driven=genre_driven,
+                available_categories=available_categories,
+            )
         )
         row_number += 1
 
     return ParsedSheet(
-        name=worksheet.title, category=category, has_header=has_header, rows=rows
+        name=worksheet.title,
+        category=category,
+        has_header=has_header,
+        genre_driven=genre_driven,
+        rows=rows,
     )
 
 
@@ -288,7 +329,8 @@ def parse_workbook(
 
     available = available_categories or list(DEFAULT_CATEGORIES)
     sheets = [
-        _parse_sheet(worksheet, category_for_sheet(worksheet.title, available))
+        _parse_sheet(worksheet, category_for_sheet(worksheet.title, available), available)
         for worksheet in workbook.worksheets
+        if normalize_sheet_name(worksheet.title) not in SKIP_SHEETS
     ]
     return ParsedWorkbook(filename=filename, sheets=sheets)

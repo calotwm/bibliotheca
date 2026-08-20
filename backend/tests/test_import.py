@@ -6,6 +6,7 @@ layouts: header sheets (``PRECIO``/``PRECIOS`` variance) and the no-header
 """
 
 import io
+import os
 import zipfile
 from decimal import Decimal
 from pathlib import Path
@@ -15,8 +16,11 @@ from openpyxl import Workbook
 from sqlalchemy import select
 
 from app.excel_import import (
+    DEFAULT_CATEGORIES,
     EmptyWorkbookError,
     UnsupportedFileError,
+    category_for_genre,
+    has_genre_column,
     parse_workbook,
 )
 from app.models import Book, Category, User
@@ -24,7 +28,18 @@ from app.routers.categories import seed_categories
 from app.security.jwt import create_access_token
 from app.security.password import hash_password
 
-REAL_CATALOG = Path(r"C:\Users\camil\Downloads\Catálogo Agosto '26.xlsx")
+# The on-disk filename uses a COMBINING accent (a + U+0301), which a literal
+# precomposed ``á`` (U+00E1) does not match at the codepoint level. Resolve via
+# ``os.listdir`` so the real-catalog test actually runs instead of skipif-masking.
+_DOWNLOADS = Path.home() / "Downloads"
+REAL_CATALOG = next(
+    (
+        _DOWNLOADS / name
+        for name in os.listdir(_DOWNLOADS)
+        if name.lower().endswith(".xlsx") and "gosto" in name and "'26" in name
+    ),
+    None,
+)
 
 HEADER_WITH_PRECIOS = [
     ("TÍTULO", "AUTOR", "EDITORIAL", "PRECIOS", "STOCK"),
@@ -226,13 +241,142 @@ def test_date_value_in_title_flagged():
     assert "Unexpected date value in title" in row.error
 
 
+# --------------------------------------------------------------------------
+# Genre-layout detection + genre -> category resolution (import-catalogo-completo)
+# --------------------------------------------------------------------------
+
+GENRE_LAYOUT = [
+    ("TÍTULO", "AUTOR", "GÉNERO", "EDITORIAL", "PRECIOS", "STOCK"),
+    ("El astillero", "Onetti, Juan Carlos", "Novela", "Sudamericana", 29500, 3),
+    ("Los heraldos negros", "Vallejo, César", "Poesía", "Losada", 24000, 1),
+]
+
+
+@pytest.mark.parametrize(
+    "genre,expected",
+    [
+        ("Novela", "Novela"),
+        ("novela", "Novela"),
+        ("Cuentos", "Cuentos"),
+        ("Poesía", "Poesía"),
+        ("poesia", "Poesía"),
+        ("Ensayo", "Ensayo"),
+        ("Teatro", "Teatro"),
+        ("Biografía", "Biografía"),
+        ("biografia", "Biografía"),
+        ("Crónicas", "No Ficción"),
+        ("cronica", "No Ficción"),
+        ("Memorias", "Biografía"),
+        ("Autobiografía", "Biografía"),
+        ("autobiografia", "Biografía"),
+        ("Cartas", "No Ficción"),
+    ],
+)
+def test_category_for_genre_map(genre, expected):
+    assert category_for_genre(genre, list(DEFAULT_CATEGORIES)) == expected
+
+
+@pytest.mark.parametrize(
+    "genre,expected",
+    [
+        ("Ensayo/Biografía", "Ensayo"),
+        ("Autobiografía/crónica", "Biografía"),
+        ("Ensayo, poesía", "Ensayo"),
+        ("Novela y cuentos", "Novela"),
+        ("Crónicas; Memorias", "No Ficción"),
+    ],
+)
+def test_category_for_genre_combos(genre, expected):
+    assert category_for_genre(genre, list(DEFAULT_CATEGORIES)) == expected
+
+
+@pytest.mark.parametrize("genre", ["Narrativa desconocida", "", None, "   "])
+def test_category_for_genre_unmapped_returns_none(genre):
+    assert category_for_genre(genre, list(DEFAULT_CATEGORIES)) is None
+
+
+def test_category_for_genre_respects_available():
+    # "Ensayo" maps to Ensayo, but when it is not seeded the resolver must fall
+    # through to the next available token (or None).
+    assert category_for_genre("Ensayo", ["Novela", "Cuentos"]) is None
+    assert category_for_genre("Ensayo/Biografía", ["Novela", "Biografía"]) == "Biografía"
+
+
+def test_has_genre_column():
+    assert has_genre_column(["TÍTULO", "AUTOR", "GÉNERO", "EDITORIAL", "PRECIOS", "STOCK"]) is True
+    assert has_genre_column(["TÍTULO", "AUTOR", "EDITORIAL", "PRECIOS", "STOCK"]) is False
+    assert has_genre_column([None, None, None]) is False
+
+
+def test_genre_layout_detects_genero_column():
+    parsed = _parse({"CATÁLOGO COMPLETO": GENRE_LAYOUT})
+    sheet = parsed.sheets[0]
+    assert sheet.has_header is True
+    assert sheet.genre_driven is True
+    assert sheet.category is None
+    first, second = sheet.rows
+    # GÉNERO is col 3, EDITORIAL is col 4 (not mis-mapped as editorial).
+    assert first.genre == "Novela"
+    assert first.editorial == "Sudamericana"
+    assert first.category == "Novela"
+    assert first.error is None
+    assert second.genre == "Poesía"
+    assert second.category == "Poesía"
+
+
+def test_genre_layout_editorial_not_confused_with_genre():
+    sheets = {
+        "CATÁLOGO COMPLETO": [
+            ("TÍTULO", "AUTOR", "GÉNERO", "EDITORIAL", "PRECIOS", "STOCK"),
+            ("La casa de Bernarda Alba", "García Lorca, Federico", "Teatro", "Losada", 15000, 2),
+        ]
+    }
+    parsed = _parse(sheets)
+    row = parsed.sheets[0].rows[0]
+    assert row.genre == "Teatro"
+    assert row.editorial == "Losada"
+    assert row.category == "Teatro"
+    assert row.error is None
+
+
+def test_cuentas_sheet_skipped():
+    sheets = {
+        "Cuentas": [
+            ("Concepto", "Monto"),
+            ("Venta efectivo", 5000),
+        ],
+        "NOVELAS": HEADER_WITH_PRECIO,
+    }
+    parsed = _parse(sheets)
+    names = [sheet.name for sheet in parsed.sheets]
+    assert "Cuentas" not in names
+    assert names == ["NOVELAS"]
+    assert parsed.has_errors is False
+
+
+def test_empty_genre_falls_back_to_no_ficcion():
+    sheets = {
+        "CATÁLOGO COMPLETO": [
+            ("TÍTULO", "AUTOR", "GÉNERO", "EDITORIAL", "PRECIOS", "STOCK"),
+            ("Sin género", "Autor X", None, "Editorial Y", 10000, 1),
+        ]
+    }
+    parsed = _parse(sheets)
+    row = parsed.sheets[0].rows[0]
+    assert row.genre is None
+    assert row.category == "No Ficción"
+    assert row.error is None
+
+
 @pytest.mark.skipif(
-    not REAL_CATALOG.exists(),
+    REAL_CATALOG is None or not REAL_CATALOG.exists(),
     reason="Real catalog file not present on this machine",
 )
 def test_real_catalog_file_layouts():
+    assert REAL_CATALOG is not None
     parsed = parse_workbook(REAL_CATALOG, available_categories=None)
-    assert len(parsed.sheets) == 6
+    # 8 sheets total minus "Cuentas" (skipped at parse time) = 7 parsed sheets.
+    assert len(parsed.sheets) == 7
     by_name = {sheet.name: sheet for sheet in parsed.sheets}
     assert by_name["NOVELAS"].has_header is True
     assert by_name["NOVELAS"].category == "Novela"
@@ -241,8 +385,18 @@ def test_real_catalog_file_layouts():
     assert by_name["POESÍA"].category == "Poesía"
     assert by_name["Oportunidades"].has_header is False
     assert by_name["Oportunidades"].category == "OPORTUNIDADES"
+    # "Cuentas" is a non-catalog sheet and must be skipped at parse time.
+    assert "Cuentas" not in by_name
+    # CATÁLOGO COMPLETO is genre-driven: per-row category, no sheet category.
+    assert by_name["CATÁLOGO COMPLETO"].genre_driven is True
+    assert by_name["CATÁLOGO COMPLETO"].category is None
+    assert all(row.category is not None for row in by_name["CATÁLOGO COMPLETO"].rows)
+    assert all(
+        "No category mapped" not in (row.error or "")
+        for row in by_name["CATÁLOGO COMPLETO"].rows
+    )
     # Every OPORTUNIDADES row parses despite the mixed 6-col / 5-col layouts.
-    assert len(by_name["Oportunidades"].rows) == 18
+    assert len(by_name["Oportunidades"].rows) == 19
     assert all(row.error is None for row in by_name["Oportunidades"].rows)
     assert by_name["Oportunidades"].rows[0].genre == "Ensayo"
     assert by_name["Oportunidades"].rows[9].genre is None
@@ -461,3 +615,84 @@ async def test_manual_add_uses_same_validation(auth_headers, session, client):
     assert len(books) == 1
     assert books[0].price == Decimal("31000.00")
     assert books[0].stock == 9
+
+
+# --------------------------------------------------------------------------
+# Genre-driven preview split + sheet ordering (import-catalogo-completo)
+# --------------------------------------------------------------------------
+
+async def test_preview_splits_genre_sheet_by_category(auth_headers, session, client):
+    await _seed_categories(session)
+    sheets = {
+        "CATÁLOGO COMPLETO": [
+            ("TÍTULO", "AUTOR", "GÉNERO", "EDITORIAL", "PRECIOS", "STOCK"),
+            ("El astillero", "Onetti, Juan Carlos", "Novela", "Sudamericana", 29500, 3),
+            ("Los heraldos negros", "Vallejo, César", "Poesía", "Losada", 24000, 1),
+        ]
+    }
+    response = await _preview(client, auth_headers, sheets)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["totals"]["errors"] == 0
+    payload_sheets = {s["category"]: s for s in data["sheets"]}
+    assert set(payload_sheets) == {"Novela", "Poesía"}
+    assert payload_sheets["Novela"]["sheet"] == "CATÁLOGO COMPLETO"
+    assert payload_sheets["Poesía"]["sheet"] == "CATÁLOGO COMPLETO"
+    assert len(payload_sheets["Novela"]["rows"]) == 1
+    assert len(payload_sheets["Poesía"]["rows"]) == 1
+    assert payload_sheets["Novela"]["rows"][0]["genre"] == "Novela"
+    assert payload_sheets["Poesía"]["rows"][0]["genre"] == "Poesía"
+
+
+async def test_aliased_sheets_before_genre_driven(auth_headers, session, client):
+    await _seed_categories(session)
+    sheets = {
+        "CATÁLOGO COMPLETO": [
+            ("TÍTULO", "AUTOR", "GÉNERO", "EDITORIAL", "PRECIOS", "STOCK"),
+            ("Rayuela", "Cortázar, Julio", "Novela", "Sudamericana", 29500, 3),
+        ],
+        "NOVELAS": [
+            ("TÍTULO", "AUTOR", "EDITORIAL", "PRECIOS", "STOCK"),
+            ("Rayuela", "Cortázar, Julio", "Sudamericana", 29500, 3),
+        ],
+    }
+    response = await _preview(client, auth_headers, sheets)
+    assert response.status_code == 200
+    data = response.json()
+    # The aliased NOVELAS sheet must claim the shared natural key even though
+    # CATÁLOGO COMPLETO appears first in file order.
+    novelas = [s for s in data["sheets"] if s["sheet"] == "NOVELAS"]
+    catalogo = [s for s in data["sheets"] if s["sheet"] == "CATÁLOGO COMPLETO"]
+    assert len(novelas) == 1
+    assert novelas[0]["rows"][0]["is_new"] is True
+    assert len(catalogo) == 1
+    assert catalogo[0]["rows"][0]["is_new"] is False  # skipped duplicate
+    assert data["totals"]["inserts"] == 1
+    assert data["totals"]["skips"] == 1
+
+
+async def test_apply_unchanged_with_split_payload(auth_headers, session, client):
+    await _seed_categories(session)
+    sheets = {
+        "CATÁLOGO COMPLETO": [
+            ("TÍTULO", "AUTOR", "GÉNERO", "EDITORIAL", "PRECIOS", "STOCK"),
+            ("El astillero", "Onetti, Juan Carlos", "Novela", "Sudamericana", 29500, 3),
+            ("Los heraldos negros", "Vallejo, César", "Poesía", "Losada", 24000, 1),
+        ]
+    }
+    preview = await _preview(client, auth_headers, sheets)
+    assert preview.status_code == 200
+    data = preview.json()
+    payload = {"token": data["token"], "filename": "catalog.xlsx", "sheets": data["sheets"]}
+
+    response = await client.post("/api/import/apply", json=payload, headers=auth_headers)
+    assert response.status_code == 200
+
+    books = (await session.execute(select(Book))).scalars().all()
+    by_title = {b.title: b for b in books}
+    novela_id = await _category_id(session, "Novela")
+    poesia_id = await _category_id(session, "Poesía")
+    assert by_title["El astillero"].category_id == novela_id
+    assert by_title["El astillero"].genre == "Novela"
+    assert by_title["Los heraldos negros"].category_id == poesia_id
+    assert by_title["Los heraldos negros"].genre == "Poesía"
