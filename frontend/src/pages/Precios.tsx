@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as importApi from "../api/import";
 import * as booksApi from "../api/books";
@@ -8,7 +8,7 @@ import { DataTable } from "../components/DataTable";
 import { AlertIcon, CheckIcon } from "../components/icons";
 import { formatARS } from "../lib/format";
 import type { Column } from "../components/DataTable";
-import type { BulkApplyResult, BulkPreview, BulkPreviewRow } from "../lib/types";
+import type { Book, BulkApplyResult, BulkPreview, BulkPreviewRow } from "../lib/types";
 
 type PriceOperation = "price_set" | "raise_percent" | "lower_percent";
 
@@ -29,6 +29,28 @@ const previewColumns: Column<BulkPreviewRow>[] = [
   },
 ];
 
+const PAGE_SIZE = 100;
+
+const listColumns: Column<Book>[] = [
+  { key: "title", header: "Título", sortable: true, sortKey: "title", render: (row) => <span className="font-medium">{row.title}</span> },
+  { key: "author", header: "Autor", sortable: true, sortKey: "author", render: (row) => row.author },
+  { key: "editorial", header: "Editorial", sortable: true, sortKey: "editorial", render: (row) => row.editorial },
+  { key: "category_name", header: "Categoría", sortable: true, sortKey: "category", render: (row) => row.category_name ?? "—" },
+  { key: "price", header: "Precio", sortable: true, sortKey: "price", render: (row) => <span className="font-semibold">{formatARS(row.price)}</span> },
+  {
+    key: "stock",
+    header: "Stock",
+    sortable: true,
+    sortKey: "stock",
+    render: (row) =>
+      row.stock === 0 ? (
+        <span className="text-xs font-semibold text-red-700">Sin stock</span>
+      ) : (
+        <span className="text-xs text-ink-soft">{row.stock}</span>
+      ),
+  },
+];
+
 const inputClass =
   "min-h-11 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy disabled:opacity-50";
 
@@ -45,6 +67,18 @@ export function Precios() {
   const [result, setResult] = useState<BulkApplyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const [listTitle, setListTitle] = useState("");
+  const [debouncedListTitle, setDebouncedListTitle] = useState("");
+  const [listAuthor, setListAuthor] = useState("");
+  const [debouncedListAuthor, setDebouncedListAuthor] = useState("");
+  const [listEditorial, setListEditorial] = useState("");
+  const [debouncedListEditorial, setDebouncedListEditorial] = useState("");
+  const [listCategoryId, setListCategoryId] = useState("");
+  const [listSortBy, setListSortBy] = useState("");
+  const [listSortDir, setListSortDir] = useState<"asc" | "desc">("asc");
+  const [listPage, setListPage] = useState(1);
+  const [listBooks, setListBooks] = useState<Book[]>([]);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
@@ -64,6 +98,76 @@ export function Precios() {
     }
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
   }, [books]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedListTitle(listTitle), 300);
+    return () => clearTimeout(timer);
+  }, [listTitle]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedListAuthor(listAuthor), 300);
+    return () => clearTimeout(timer);
+  }, [listAuthor]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedListEditorial(listEditorial), 300);
+    return () => clearTimeout(timer);
+  }, [listEditorial]);
+
+  const {
+    data: listPageData,
+    isLoading: listLoading,
+    isError: listIsError,
+    error: listError,
+  } = useQuery({
+    queryKey: [
+      "books",
+      "list",
+      debouncedListTitle,
+      listCategoryId,
+      debouncedListAuthor,
+      debouncedListEditorial,
+      listSortBy,
+      listSortDir,
+      listPage,
+    ],
+    queryFn: () =>
+      booksApi.listBooks({
+        title: debouncedListTitle || undefined,
+        category_id: listCategoryId ? Number(listCategoryId) : null,
+        author: debouncedListAuthor || null,
+        editorial: debouncedListEditorial || null,
+        sort_by: listSortBy || null,
+        sort_dir: listSortDir || null,
+        page: listPage,
+        page_size: PAGE_SIZE,
+      }),
+  });
+
+  useEffect(() => {
+    const page = listPageData ?? [];
+    if (listPage === 1) {
+      setListBooks(page);
+      return;
+    }
+    setListBooks((prev) => {
+      const seen = new Set(prev.map((book) => book.id));
+      const fresh = page.filter((book) => !seen.has(book.id));
+      return fresh.length === 0 ? prev : [...prev, ...fresh];
+    });
+  }, [listPageData, listPage]);
+
+  const hasMoreList = listBooks.length === listPage * PAGE_SIZE;
+
+  function handleListSort(key: string) {
+    if (listSortBy === key) {
+      setListSortDir((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setListSortBy(key);
+      setListSortDir("asc");
+    }
+    setListPage(1);
+  }
 
   const selectedOperation =
     OPERATIONS.find((item) => item.value === operation) ?? OPERATIONS[0];
@@ -135,6 +239,113 @@ export function Precios() {
 
   return (
     <div className="space-y-8">
+      <section className="rounded-sm border border-navy/10 bg-cream p-4">
+        <h2 className="text-lg font-bold">Listado de libros</h2>
+        <p className="mt-1 text-sm text-ink-soft">
+          Busque libros por título, autor, editorial o categoría y ordene las
+          columnas. Los filtros se combinan entre sí.
+        </p>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="block">
+            <span className="text-sm font-medium">Título</span>
+            <input
+              type="text"
+              value={listTitle}
+              onChange={(event) => {
+                setListTitle(event.target.value);
+                setListPage(1);
+              }}
+              className={inputClass}
+              placeholder="Buscar por título…"
+              aria-label="Filtrar por título"
+            />
+          </div>
+          <div className="block">
+            <span className="text-sm font-medium">Autor</span>
+            <input
+              type="text"
+              value={listAuthor}
+              onChange={(event) => {
+                setListAuthor(event.target.value);
+                setListPage(1);
+              }}
+              className={inputClass}
+              placeholder="Autor"
+              aria-label="Filtrar por autor"
+            />
+          </div>
+          <div className="block">
+            <span className="text-sm font-medium">Editorial</span>
+            <input
+              type="text"
+              value={listEditorial}
+              onChange={(event) => {
+                setListEditorial(event.target.value);
+                setListPage(1);
+              }}
+              className={inputClass}
+              placeholder="Editorial"
+              aria-label="Filtrar por editorial"
+            />
+          </div>
+          <div className="block">
+            <span className="text-sm font-medium">Categoría</span>
+            <select
+              value={listCategoryId}
+              onChange={(event) => {
+                setListCategoryId(event.target.value);
+                setListPage(1);
+              }}
+              className={inputClass}
+              aria-label="Filtrar por categoría"
+            >
+              <option value="">Todas</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {listLoading && <p className="mt-3 text-sm text-ink-soft">Cargando…</p>}
+        {listIsError && (
+          <p className="mt-3 text-sm text-red-700">
+            {listError instanceof Error
+              ? listError.message
+              : "No se pudo cargar el listado."}
+          </p>
+        )}
+        {!listLoading && !listIsError && (
+          <>
+            <div className="mt-3">
+              <DataTable
+                columns={listColumns}
+                rows={listBooks}
+                getRowKey={(row) => row.id}
+                emptyMessage="No se encontraron libros con esos filtros."
+                sortBy={listSortBy}
+                sortDir={listSortDir}
+                onSort={handleListSort}
+              />
+            </div>
+            {hasMoreList && (
+              <div className="mt-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => setListPage((current) => current + 1)}
+                  className="min-h-10 rounded-sm border border-navy/20 bg-cream px-4 py-2 text-sm font-medium text-navy hover:bg-navy/5"
+                >
+                  Cargar más
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
       <section className="rounded-sm border border-navy/10 bg-cream p-4">
         <h2 className="text-lg font-bold">Ajuste de precios por editorial</h2>
         <p className="mt-1 text-sm text-ink-soft">
