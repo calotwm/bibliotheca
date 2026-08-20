@@ -240,113 +240,6 @@ export function Precios() {
   return (
     <div className="space-y-8">
       <section className="rounded-sm border border-navy/10 bg-cream p-4">
-        <h2 className="text-lg font-bold">Listado de libros</h2>
-        <p className="mt-1 text-sm text-ink-soft">
-          Busque libros por título, autor, editorial o categoría y ordene las
-          columnas. Los filtros se combinan entre sí.
-        </p>
-
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="block">
-            <span className="text-sm font-medium">Título</span>
-            <input
-              type="text"
-              value={listTitle}
-              onChange={(event) => {
-                setListTitle(event.target.value);
-                setListPage(1);
-              }}
-              className={inputClass}
-              placeholder="Buscar por título…"
-              aria-label="Filtrar por título"
-            />
-          </div>
-          <div className="block">
-            <span className="text-sm font-medium">Autor</span>
-            <input
-              type="text"
-              value={listAuthor}
-              onChange={(event) => {
-                setListAuthor(event.target.value);
-                setListPage(1);
-              }}
-              className={inputClass}
-              placeholder="Autor"
-              aria-label="Filtrar por autor"
-            />
-          </div>
-          <div className="block">
-            <span className="text-sm font-medium">Editorial</span>
-            <input
-              type="text"
-              value={listEditorial}
-              onChange={(event) => {
-                setListEditorial(event.target.value);
-                setListPage(1);
-              }}
-              className={inputClass}
-              placeholder="Editorial"
-              aria-label="Filtrar por editorial"
-            />
-          </div>
-          <div className="block">
-            <span className="text-sm font-medium">Categoría</span>
-            <select
-              value={listCategoryId}
-              onChange={(event) => {
-                setListCategoryId(event.target.value);
-                setListPage(1);
-              }}
-              className={inputClass}
-              aria-label="Filtrar por categoría"
-            >
-              <option value="">Todas</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {listLoading && <p className="mt-3 text-sm text-ink-soft">Cargando…</p>}
-        {listIsError && (
-          <p className="mt-3 text-sm text-red-700">
-            {listError instanceof Error
-              ? listError.message
-              : "No se pudo cargar el listado."}
-          </p>
-        )}
-        {!listLoading && !listIsError && (
-          <>
-            <div className="mt-3">
-              <DataTable
-                columns={listColumns}
-                rows={listBooks}
-                getRowKey={(row) => row.id}
-                emptyMessage="No se encontraron libros con esos filtros."
-                sortBy={listSortBy}
-                sortDir={listSortDir}
-                onSort={handleListSort}
-              />
-            </div>
-            {hasMoreList && (
-              <div className="mt-3 text-center">
-                <button
-                  type="button"
-                  onClick={() => setListPage((current) => current + 1)}
-                  className="min-h-10 rounded-sm border border-navy/20 bg-cream px-4 py-2 text-sm font-medium text-navy hover:bg-navy/5"
-                >
-                  Cargar más
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
-      <section className="rounded-sm border border-navy/10 bg-cream p-4">
         <h2 className="text-lg font-bold">Ajuste de precios por editorial</h2>
         <p className="mt-1 text-sm text-ink-soft">
           Fije un precio en ARS o aplique un porcentaje (subir o bajar) a todos
@@ -489,6 +382,113 @@ export function Precios() {
               {result.affected} libro(s) actualizado(s).
             </p>
           </div>
+        )}
+      </section>
+
+      <section className="rounded-sm border border-navy/10 bg-cream p-4">
+        <h2 className="text-lg font-bold">Listado de libros</h2>
+        <p className="mt-1 text-sm text-ink-soft">
+          Busque libros por título, autor, editorial o categoría y ordene las
+          columnas. Los filtros se combinan entre sí.
+        </p>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="block">
+            <span className="text-sm font-medium">Título</span>
+            <input
+              type="text"
+              value={listTitle}
+              onChange={(event) => {
+                setListTitle(event.target.value);
+                setListPage(1);
+              }}
+              className={inputClass}
+              placeholder="Buscar por título…"
+              aria-label="Filtrar por título"
+            />
+          </div>
+          <div className="block">
+            <span className="text-sm font-medium">Autor</span>
+            <input
+              type="text"
+              value={listAuthor}
+              onChange={(event) => {
+                setListAuthor(event.target.value);
+                setListPage(1);
+              }}
+              className={inputClass}
+              placeholder="Autor"
+              aria-label="Filtrar por autor"
+            />
+          </div>
+          <div className="block">
+            <span className="text-sm font-medium">Editorial</span>
+            <input
+              type="text"
+              value={listEditorial}
+              onChange={(event) => {
+                setListEditorial(event.target.value);
+                setListPage(1);
+              }}
+              className={inputClass}
+              placeholder="Editorial"
+              aria-label="Filtrar por editorial"
+            />
+          </div>
+          <div className="block">
+            <span className="text-sm font-medium">Categoría</span>
+            <select
+              value={listCategoryId}
+              onChange={(event) => {
+                setListCategoryId(event.target.value);
+                setListPage(1);
+              }}
+              className={inputClass}
+              aria-label="Filtrar por categoría"
+            >
+              <option value="">Todas</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {listLoading && <p className="mt-3 text-sm text-ink-soft">Cargando…</p>}
+        {listIsError && (
+          <p className="mt-3 text-sm text-red-700">
+            {listError instanceof Error
+              ? listError.message
+              : "No se pudo cargar el listado."}
+          </p>
+        )}
+        {!listLoading && !listIsError && (
+          <>
+            <div className="mt-3">
+              <DataTable
+                columns={listColumns}
+                rows={listBooks}
+                getRowKey={(row) => row.id}
+                emptyMessage="No se encontraron libros con esos filtros."
+                sortBy={listSortBy}
+                sortDir={listSortDir}
+                onSort={handleListSort}
+              />
+            </div>
+            {hasMoreList && (
+              <div className="mt-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => setListPage((current) => current + 1)}
+                  className="min-h-10 rounded-sm border border-navy/20 bg-cream px-4 py-2 text-sm font-medium text-navy hover:bg-navy/5"
+                >
+                  Cargar más
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>

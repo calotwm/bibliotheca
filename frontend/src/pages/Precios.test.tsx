@@ -187,16 +187,23 @@ describe("Precios", () => {
     expect(importApi.bulkPreview).not.toHaveBeenCalled();
   });
 
-  it("renders the read-only book list above the bulk form", async () => {
+  it("renders the bulk price-adjustment form above the book list", async () => {
     vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
     renderPrecios();
-    expect(
-      screen.getByRole("heading", { name: "Listado de libros" })
-    ).toBeInTheDocument();
+
+    const headings = screen.getAllByRole("heading", { level: 2 });
+    const bulkIndex = headings.findIndex(
+      (heading) => heading.textContent === "Ajuste de precios por editorial"
+    );
+    const listIndex = headings.findIndex(
+      (heading) => heading.textContent === "Listado de libros"
+    );
+
+    expect(bulkIndex).toBeGreaterThanOrEqual(0);
+    expect(listIndex).toBeGreaterThanOrEqual(0);
+    expect(bulkIndex).toBeLessThan(listIndex);
+
     expect(await screen.findByText("Libro A")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Ajuste de precios por editorial" })
-    ).toBeInTheDocument();
   });
 
   it("sends combined author and editorial filters with AND semantics", async () => {
@@ -258,6 +265,15 @@ describe("Precios", () => {
   it("shows the read-only list to cashiers while the bulk form stays admin-gated", async () => {
     vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
     renderPrecios("cashier");
+
+    const headings = screen.getAllByRole("heading", { level: 2 });
+    const bulkIndex = headings.findIndex(
+      (heading) => heading.textContent === "Ajuste de precios por editorial"
+    );
+    const listIndex = headings.findIndex(
+      (heading) => heading.textContent === "Listado de libros"
+    );
+    expect(bulkIndex).toBeLessThan(listIndex);
 
     expect(
       screen.getByRole("heading", { name: "Listado de libros" })
