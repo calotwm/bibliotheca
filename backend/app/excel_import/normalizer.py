@@ -6,6 +6,7 @@ Display strings keep their original case; matching uses the normalized form
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from typing import Iterable
 
@@ -17,13 +18,18 @@ COLUMN_KEYWORDS = frozenset(
 )
 
 # Exact category names seeded at startup (REQ-CAT-2). Shared with the
-# categories router so the importer and the seed stay in sync.
+# categories router so the importer and the seed stay in sync. Ensayo, Teatro
+# and Biografía are appended before OPORTUNIDADES so the existing ordering is
+# preserved.
 DEFAULT_CATEGORIES = [
     "Novela",
     "Cuentos",
     "No Ficción",
     "Poesía",
     "Infantil y Juvenil",
+    "Ensayo",
+    "Teatro",
+    "Biografía",
     "OPORTUNIDADES",
 ]
 
@@ -37,6 +43,30 @@ SHEET_CATEGORY_ALIASES = {
     "infantil y juvenil": "Infantil y Juvenil",
     "poesia": "Poesía",
     "oportunidades": "OPORTUNIDADES",
+}
+
+# Sheet names (normalized) that are skipped at parse time. "Cuentas" is an
+# accounts sheet, not a catalog sheet, so it must not produce rows or errors.
+SKIP_SHEETS = {"cuentas"}
+
+# Broadest seeded catch-all applied to genre-driven rows whose genre is empty
+# or unmapped (REQ-IMP: per-row category fallback).
+GENRE_FALLBACK_CATEGORY = "No Ficción"
+
+# Normalized genre token -> canonical category. Keys are accent/case-insensitive
+# (looked up through :func:`_normalize_genre_token`); any token prefixed with
+# "autobiograf" resolves to Biografía.
+GENRE_CATEGORY_MAP = {
+    "novela": "Novela",
+    "cuentos": "Cuentos",
+    "poesia": "Poesía",
+    "ensayo": "Ensayo",
+    "teatro": "Teatro",
+    "biografia": "Biografía",
+    "cronica": "No Ficción",
+    "cronicas": "No Ficción",
+    "memorias": "Biografía",
+    "cartas": "No Ficción",
 }
 
 
@@ -81,3 +111,41 @@ def category_for_sheet(sheet_name: str, available: Iterable[str]) -> str | None:
         if normalize_sheet_name(name) == canonical_key:
             return name
     return None
+
+
+def _normalize_genre_token(value: str) -> str:
+    """Normalize a genre token for map lookup (strip, fold case, accents, collapse spaces)."""
+    return " ".join(strip_accents(value.strip()).casefold().split())
+
+
+def _genre_to_category(token: str) -> str | None:
+    """Map a single normalized genre token to a canonical category name."""
+    key = _normalize_genre_token(token)
+    if key.startswith("autobiograf"):
+        return "Biografía"
+    return GENRE_CATEGORY_MAP.get(key)
+
+
+def category_for_genre(genre: str | None, available: Iterable[str]) -> str | None:
+    """Map a genre string to a canonical category present in ``available``.
+
+    Combo genres split on ``/``, ``,``, ``;`` and the standalone word `` y ``
+    and return the FIRST token mapping to an available category. Empty or
+    unmapped genres return ``None`` (the caller applies the fallback).
+    """
+    if not genre:
+        return None
+    available_keys = {normalize_sheet_name(name) for name in available}
+    tokens = re.split(r"[/,;]|\s+y\s+", genre)
+    for token in tokens:
+        canonical = _genre_to_category(token)
+        if canonical is None:
+            continue
+        if normalize_sheet_name(canonical) in available_keys:
+            return canonical
+    return None
+
+
+def has_genre_column(cells: list[str | None]) -> bool:
+    """True when any header cell normalizes to ``genero`` (genre layout)."""
+    return any(normalize_header(cell) == "genero" for cell in cells if cell)

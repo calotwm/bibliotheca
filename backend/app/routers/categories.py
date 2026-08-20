@@ -21,7 +21,7 @@ _settings = get_settings()
 
 
 async def seed_categories(session: AsyncSession) -> None:
-    """Seed the 6 default categories idempotently (missing names only)."""
+    """Seed the 9 default categories idempotently (missing names only)."""
     existing = set((await session.execute(select(Category.name))).scalars().all())
     for name in DEFAULT_CATEGORIES:
         if name not in existing:

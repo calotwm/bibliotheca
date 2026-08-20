@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..excel_import.parser import parse_workbook
+from ..excel_import.parser import ParsedRow, parse_workbook
 from ..models import Category, User
 from ..schemas.import_data import (
     ImportApplyRequest,
@@ -67,12 +67,80 @@ def compute_token(sheets: Iterable[ImportSheet]) -> str:
     return hashlib.sha256(_canonical_sheets(sheets).encode("utf-8")).hexdigest()
 
 
+async def _classify_rows(
+    session: AsyncSession,
+    sheet_name: str,
+    rows: Iterable[ParsedRow],
+    seen: set[tuple[str, str, str]],
+) -> tuple[list[ImportRow], int, int, int, int, list[ImportRowError]]:
+    """Classify one emit group's rows into insert/update/skip/error.
+
+    Shared with the single-sheet path so genre-driven groups and aliased sheets
+    use identical accounting (REQ-IMP-3).
+    """
+    inserts = updates = skips = row_errors = 0
+    rows_payload: list[ImportRow] = []
+    errors: list[ImportRowError] = []
+    for row in rows:
+        if row.error is not None:
+            row_errors += 1
+            errors.append(
+                ImportRowError(
+                    sheet=sheet_name, row_number=row.row_number, message=row.error
+                )
+            )
+            continue
+        key = natural_key(row.title, row.author, row.editorial)
+        if key in seen:
+            skips += 1
+            # Still carried in the payload so apply's skip count matches the
+            # preview; apply re-detects the duplicate and never upserts it.
+            rows_payload.append(
+                ImportRow(
+                    row_number=row.row_number,
+                    title=row.title,
+                    author=row.author,
+                    editorial=row.editorial,
+                    genre=row.genre,
+                    price=row.price,
+                    stock=row.stock,
+                    is_new=False,
+                )
+            )
+            continue
+        seen.add(key)
+        existing = await find_by_natural_key(
+            session, row.title, row.author, row.editorial
+        )
+        is_new = existing is None
+        if is_new:
+            inserts += 1
+        else:
+            updates += 1
+        rows_payload.append(
+            ImportRow(
+                row_number=row.row_number,
+                title=row.title,
+                author=row.author,
+                editorial=row.editorial,
+                genre=row.genre,
+                price=row.price,
+                stock=row.stock,
+                is_new=is_new,
+            )
+        )
+    return rows_payload, inserts, updates, skips, row_errors, errors
+
+
 async def preview_import(
     session: AsyncSession, data: bytes, filename: str
 ) -> ImportPreviewResponse:
     """Parse the workbook and classify every row into insert/update/skip/error.
 
     Read-only: performs natural-key lookups but never writes (REQ-IMP-3).
+    Genre-driven sheets are grouped by resolved category into one ImportSheet
+    per category; aliased sheets are processed before genre-driven sheets so
+    shared natural keys are claimed by the intended category.
     """
     available = list((await session.execute(select(Category.name))).scalars().all())
     workbook = parse_workbook(data, filename=filename, available_categories=available)
@@ -83,80 +151,41 @@ async def preview_import(
     totals = ImportTotals()
     seen: set[tuple[str, str, str]] = set()
 
-    for sheet in workbook.sheets:
-        inserts = updates = skips = row_errors = 0
-        rows_payload: list[ImportRow] = []
-        for row in sheet.rows:
-            if row.error is not None:
-                row_errors += 1
-                errors.append(
-                    ImportRowError(
-                        sheet=sheet.name, row_number=row.row_number, message=row.error
-                    )
-                )
-                continue
-            key = natural_key(row.title, row.author, row.editorial)
-            if key in seen:
-                skips += 1
-                # Still carried in the payload so apply's skip count matches the
-                # preview; apply re-detects the duplicate and never upserts it.
-                rows_payload.append(
-                    ImportRow(
-                        row_number=row.row_number,
-                        title=row.title,
-                        author=row.author,
-                        editorial=row.editorial,
-                        genre=row.genre,
-                        price=row.price,
-                        stock=row.stock,
-                        is_new=False,
-                    )
-                )
-                continue
-            seen.add(key)
-            existing = await find_by_natural_key(
-                session, row.title, row.author, row.editorial
-            )
-            is_new = existing is None
-            if is_new:
-                inserts += 1
-            else:
-                updates += 1
-            rows_payload.append(
-                ImportRow(
-                    row_number=row.row_number,
-                    title=row.title,
-                    author=row.author,
-                    editorial=row.editorial,
-                    genre=row.genre,
-                    price=row.price,
-                    stock=row.stock,
-                    is_new=is_new,
-                )
-            )
+    for sheet in sorted(workbook.sheets, key=lambda s: s.genre_driven):
+        if sheet.genre_driven:
+            groups: dict[str, list[ParsedRow]] = {}
+            for row in sheet.rows:
+                groups.setdefault(row.category, []).append(row)
+            emissions = [(sheet.name, category, rows) for category, rows in groups.items()]
+        else:
+            emissions = [(sheet.name, sheet.category, sheet.rows)]
 
-        parsed = len(sheet.rows)
-        summaries.append(
-            ImportSheetSummary(
-                sheet=sheet.name,
-                category=sheet.category,
-                parsed=parsed,
-                inserts=inserts,
-                updates=updates,
-                skips=skips,
-                errors=row_errors,
+        for sheet_name, category, rows in emissions:
+            rows_payload, inserts, updates, skips, row_errors, group_errors = (
+                await _classify_rows(session, sheet_name, rows, seen)
             )
-        )
-        if sheet.category is not None and rows_payload:
-            sheets_payload.append(
-                ImportSheet(sheet=sheet.name, category=sheet.category, rows=rows_payload)
+            errors.extend(group_errors)
+            summaries.append(
+                ImportSheetSummary(
+                    sheet=sheet_name,
+                    category=category,
+                    parsed=len(rows),
+                    inserts=inserts,
+                    updates=updates,
+                    skips=skips,
+                    errors=row_errors,
+                )
             )
+            if category is not None and rows_payload:
+                sheets_payload.append(
+                    ImportSheet(sheet=sheet_name, category=category, rows=rows_payload)
+                )
 
-        totals.parsed += parsed
-        totals.inserts += inserts
-        totals.updates += updates
-        totals.skips += skips
-        totals.errors += row_errors
+            totals.parsed += len(rows)
+            totals.inserts += inserts
+            totals.updates += updates
+            totals.skips += skips
+            totals.errors += row_errors
 
     return ImportPreviewResponse(
         token=compute_token(sheets_payload),
