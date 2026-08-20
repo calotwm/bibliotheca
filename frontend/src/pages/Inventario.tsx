@@ -24,7 +24,7 @@ const columns: Column<Book>[] = [
   },
   { key: "author", header: "Autor", sortable: true, sortKey: "author", render: (row) => row.author },
   { key: "editorial", header: "Editorial", sortable: true, sortKey: "editorial", render: (row) => row.editorial },
-  { key: "category_name", header: "Categoría", render: (row) => row.category_name ?? "—" },
+  { key: "category_name", header: "Categoría", sortable: true, sortKey: "category", render: (row) => row.category_name ?? "—" },
   { key: "price", header: "Precio", sortable: true, sortKey: "price", render: (row) => <span className="font-semibold">{formatARS(row.price)}</span> },
   {
     key: "stock",
@@ -170,72 +170,7 @@ export function Inventario() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="relative min-w-56 flex-1">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
-          <input
-            type="search"
-            value={title}
-            onChange={(event) => {
-              setTitle(event.target.value);
-              resetPageOnFilterChange();
-            }}
-            placeholder="Buscar por título…"
-            className={`${inputClass} pl-9`}
-            aria-label="Filtrar por título"
-          />
-        </div>
-        <select
-          value={categoryId}
-          onChange={(event) => {
-            setCategoryId(event.target.value);
-            resetPageOnFilterChange();
-          }}
-          className={`${inputClass} w-auto`}
-          aria-label="Filtrar por categoría"
-        >
-          <option value="">Todas las categorías</option>
-          {(categories ?? []).map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={stockStatus}
-          onChange={(event) => {
-            setStockStatus(event.target.value);
-            resetPageOnFilterChange();
-          }}
-          className={`${inputClass} w-auto`}
-          aria-label="Filtrar por estado de stock"
-        >
-          {STOCK_FILTERS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          value={author}
-          onChange={(event) => {
-            setAuthor(event.target.value);
-            resetPageOnFilterChange();
-          }}
-          placeholder="Autor"
-          className={`${inputClass} w-40`}
-        />
-        <input
-          type="text"
-          value={editorial}
-          onChange={(event) => {
-            setEditorial(event.target.value);
-            resetPageOnFilterChange();
-          }}
-          placeholder="Editorial"
-          className={`${inputClass} w-40`}
-        />
+      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={() => {
@@ -243,11 +178,106 @@ export function Inventario() {
             setFormError(null);
             setShowForm(true);
           }}
-          className="ml-auto inline-flex min-h-10 items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light"
+          className="inline-flex min-h-10 items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light"
         >
           <PlusIcon className="h-4 w-4" />
           Nuevo libro
         </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="block">
+          <label htmlFor="inv-title" className="text-sm font-medium">
+            Título
+          </label>
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+            <input
+              id="inv-title"
+              type="search"
+              value={title}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                resetPageOnFilterChange();
+              }}
+              placeholder="Buscar por título…"
+              className={`${inputClass} pl-9`}
+            />
+          </div>
+        </div>
+        <div className="block">
+          <label htmlFor="inv-author" className="text-sm font-medium">
+            Autor
+          </label>
+          <input
+            id="inv-author"
+            type="text"
+            value={author}
+            onChange={(event) => {
+              setAuthor(event.target.value);
+              resetPageOnFilterChange();
+            }}
+            placeholder="Autor"
+            className={inputClass}
+          />
+        </div>
+        <div className="block">
+          <label htmlFor="inv-editorial" className="text-sm font-medium">
+            Editorial
+          </label>
+          <input
+            id="inv-editorial"
+            type="text"
+            value={editorial}
+            onChange={(event) => {
+              setEditorial(event.target.value);
+              resetPageOnFilterChange();
+            }}
+            placeholder="Editorial"
+            className={inputClass}
+          />
+        </div>
+        <div className="block">
+          <label htmlFor="inv-category" className="text-sm font-medium">
+            Categoría
+          </label>
+          <select
+            id="inv-category"
+            value={categoryId}
+            onChange={(event) => {
+              setCategoryId(event.target.value);
+              resetPageOnFilterChange();
+            }}
+            className={inputClass}
+          >
+            <option value="">Todas las categorías</option>
+            {(categories ?? []).map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="block">
+          <label htmlFor="inv-stock" className="text-sm font-medium">
+            Stock
+          </label>
+          <select
+            id="inv-stock"
+            value={stockStatus}
+            onChange={(event) => {
+              setStockStatus(event.target.value);
+              resetPageOnFilterChange();
+            }}
+            className={inputClass}
+          >
+            {STOCK_FILTERS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {isLoading && <p className="text-sm text-ink-soft">Cargando…</p>}

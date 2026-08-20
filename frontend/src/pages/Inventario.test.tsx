@@ -58,8 +58,8 @@ describe("Inventario", () => {
     renderPage();
 
     const titleInput = screen.getByRole("searchbox", { name: /título/i });
-    const authorInput = screen.getByPlaceholderText("Autor");
-    const editorialInput = screen.getByPlaceholderText("Editorial");
+    const authorInput = screen.getByLabelText("Autor");
+    const editorialInput = screen.getByLabelText("Editorial");
 
     await user.type(titleInput, "Rayuela");
     await user.type(authorInput, "Cortázar");
@@ -72,6 +72,31 @@ describe("Inventario", () => {
           author: "Cortázar",
           editorial: "Sudamericana",
         })
+      );
+    });
+  });
+
+  it("shows a visible label for each of the five filters", () => {
+    renderPage();
+
+    expect(screen.getByLabelText("Título")).toBeInTheDocument();
+    expect(screen.getByLabelText("Autor")).toBeInTheDocument();
+    expect(screen.getByLabelText("Editorial")).toBeInTheDocument();
+    expect(screen.getByLabelText("Categoría")).toBeInTheDocument();
+    expect(screen.getByLabelText("Stock")).toBeInTheDocument();
+  });
+
+  it("sorts by category when clicking the Categoría column header", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    const user = userEvent.setup();
+    renderPage();
+
+    const categoryHeader = await screen.findByRole("button", { name: /categoría/i });
+    await user.click(categoryHeader);
+
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "category", sort_dir: "asc" })
       );
     });
   });
