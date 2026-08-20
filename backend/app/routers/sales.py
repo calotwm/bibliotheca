@@ -9,11 +9,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from sqlalchemy import text
+
 from ..config import get_settings
 from ..db import get_session
 from ..models import Sale, SaleItem, User
 from ..schemas.sale import SaleCreate, SaleItemRead, SaleListRead, SaleRead
-from ..security.deps import require_user
+from ..security.deps import require_admin, require_user
 from ..security.limiter import limiter
 from ..services import pdf_service
 from ..services.sale_service import (
@@ -21,6 +23,7 @@ from ..services.sale_service import (
     OversellError,
     create_sale,
 )
+from ..services.numbering import NUMBERING_KEY, PG_SEQUENCE
 
 router = APIRouter(prefix="/api/sales", tags=["sales"])
 
@@ -197,3 +200,50 @@ async def get_sale_invoice(
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
+
+
+@router.post("/reset")
+@limiter.limit(_settings.rate_limit_api)
+async def reset_sales(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    admin: Annotated[User, Depends(require_admin)],
+    confirm: bool = False,
+) -> dict:
+    """Destructive admin-only reset: delete all sales and reset invoice numbering.
+
+    Requires ``?confirm=true`` as an explicit guard (the operation is
+    irreversible). Sale rows do NOT restore book stock (by design). Runs in a
+    single transaction.
+    """
+    if not confirm:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reset requires ?confirm=true",
+        )
+
+    sale_items_deleted = (
+        await session.execute(select(func.count(SaleItem.id)))
+    ).scalar_one()
+    sales_deleted = (await session.execute(select(func.count(Sale.id)))).scalar_one()
+    await session.execute(text("DELETE FROM sale_items"))
+    await session.execute(text("DELETE FROM sales"))
+
+    dialect = session.get_bind().dialect.name
+    if dialect == "postgresql":
+        await session.execute(
+            text(f"ALTER SEQUENCE {PG_SEQUENCE} RESTART WITH 1")
+        )
+    else:
+        await session.execute(
+            text("UPDATE numbering SET value = 0 WHERE name = :name"),
+            {"name": NUMBERING_KEY},
+        )
+
+    await session.commit()
+
+    return {
+        "deleted_sale_items": sale_items_deleted,
+        "deleted_sales": sales_deleted,
+        "invoice_numbering": "reset",
+    }

@@ -274,3 +274,66 @@ async def test_concurrent_distinct_invoice_numbers(concurrent_env):
         assert book.stock == 8
         items = (await session.execute(select(SaleItem))).scalars().all()
         assert len(items) == 2
+
+
+async def _cashier_headers(session) -> dict:
+    user = User(
+        username="cashier", password_hash=hash_password("cashier"), role="cashier"
+    )
+    session.add(user)
+    await session.commit()
+    token = create_access_token("cashier", "cashier")
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _seed_sale(session, client, headers, book_id=None) -> int:
+    if book_id is None:
+        book_id = await _seed_book(session, stock=5, price="10.00")
+    response = await client.post(
+        "/api/sales", json=_sale_payload(book_id, 2), headers=headers
+    )
+    assert response.status_code == 201
+    return response.json()["sale_number"]
+
+
+async def test_reset_sales_requires_confirm(auth_headers, session, client):
+    await _seed_sale(session, client, auth_headers)
+    response = await client.post("/api/sales/reset", headers=auth_headers)
+    assert response.status_code == 400
+    # Nothing deleted without confirm.
+    assert len((await session.execute(select(Sale))).scalars().all()) == 1
+
+
+async def test_reset_sales_forbidden_for_cashier(auth_headers, session, client):
+    await _seed_sale(session, client, auth_headers)
+    headers = await _cashier_headers(session)
+    response = await client.post(
+        "/api/sales/reset?confirm=true", headers=headers
+    )
+    assert response.status_code == 403
+    assert len((await session.execute(select(Sale))).scalars().all()) == 1
+
+
+async def test_reset_sales_deletes_all_and_resets_numbering(
+    auth_headers, session, client
+):
+    book_id = await _seed_book(session, stock=10, price="10.00")
+    # Two sales → numbering should reset so the next sale is #1.
+    await _seed_sale(session, client, auth_headers, book_id=book_id)
+    await _seed_sale(session, client, auth_headers, book_id=book_id)
+    assert len((await session.execute(select(Sale))).scalars().all()) == 2
+
+    response = await client.post(
+        "/api/sales/reset?confirm=true", headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["deleted_sales"] == 2
+    assert data["invoice_numbering"] == "reset"
+
+    assert len((await session.execute(select(Sale))).scalars().all()) == 0
+    assert len((await session.execute(select(SaleItem))).scalars().all()) == 0
+
+    # A new sale gets invoice number 1 again.
+    sale_number = await _seed_sale(session, client, auth_headers, book_id=book_id)
+    assert sale_number == 1
