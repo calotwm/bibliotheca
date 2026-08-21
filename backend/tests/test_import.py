@@ -226,7 +226,7 @@ def test_ars_formatted_price_parsed():
     assert row.error is None
 
 
-def test_date_value_in_title_flagged():
+def test_date_value_in_title_skipped():
     from datetime import datetime
 
     sheets = {
@@ -237,8 +237,68 @@ def test_date_value_in_title_flagged():
     }
     parsed = _parse(sheets)
     row = parsed.sheets[0].rows[0]
+    assert row.skip_reason == "Unexpected date value in title"
+    assert row.error is None
+    # Parsed fields are still carried so summary accounting stays accurate.
+    assert row.author == "Jimena Coppolino"
+    assert row.editorial == "La mariposa y la iguana"
+    assert row.price == Decimal("24000.00")
+    assert row.stock == 1
+
+
+def test_date_in_author_still_flagged():
+    # Only date-as-TITLE is a skip; date-as-author remains a genuine error.
+    from datetime import datetime
+
+    sheets = {
+        "POESÍA": [
+            ("TÍTULO", "AUTOR", "EDITORIAL", "PRECIO", "STOCK"),
+            ("Un título", datetime(2026, 11, 25), "Ed X", 10000, 1),
+        ]
+    }
+    parsed = _parse(sheets)
+    row = parsed.sheets[0].rows[0]
+    assert row.skip_reason is None
     assert row.error is not None
-    assert "Unexpected date value in title" in row.error
+    assert "Unexpected date value in author" in row.error
+
+
+def test_footer_summary_row_skipped():
+    sheets = {
+        "CUENTOS": [
+            ("TÍTULO", "AUTOR", "EDITORIAL", "PRECIOS", "STOCK"),
+            ("Bueno", "Autor A", "Ed X", 10000, 1),
+            (None, None, None, "total libros", 440),
+        ]
+    }
+    parsed = _parse(sheets)
+    rows = parsed.sheets[0].rows
+    assert len(rows) == 2
+    genuine, footer = rows
+    assert genuine.error is None
+    assert genuine.skip_reason is None
+    assert footer.skip_reason == "footer/summary row"
+    assert footer.error is None
+    assert footer.title == ""
+    assert footer.author == ""
+    assert footer.editorial == ""
+
+
+def test_footer_summary_row_skipped_genre_layout():
+    # The real footer/summary row lives in the genre-driven CATÁLOGO COMPLETO
+    # sheet (6 columns), where its empty genre falls back to "No Ficción".
+    sheets = {
+        "CATÁLOGO COMPLETO": [
+            ("TÍTULO", "AUTOR", "GÉNERO", "EDITORIAL", "PRECIOS", "STOCK"),
+            ("Un libro", "Autor A", "Novela", "Ed X", 10000, 1),
+            (None, None, None, None, "total libros", 440),
+        ]
+    }
+    parsed = _parse(sheets)
+    footer = parsed.sheets[0].rows[1]
+    assert footer.skip_reason == "footer/summary row"
+    assert footer.error is None
+    assert footer.category == "No Ficción"
 
 
 # --------------------------------------------------------------------------
@@ -404,8 +464,17 @@ def test_real_catalog_file_layouts():
         1 for sheet in parsed.sheets for row in sheet.rows if row.error is None
     )
     total_rows = sum(len(sheet.rows) for sheet in parsed.sheets)
+    total_errors = sum(
+        1 for sheet in parsed.sheets for row in sheet.rows if row.error is not None
+    )
+    total_skips = sum(
+        1 for sheet in parsed.sheets for row in sheet.rows if row.skip_reason is not None
+    )
     assert total_valid >= 640
     assert total_rows - total_valid < 5
+    # The two known data-entry-noise rows are silent skips, never errors.
+    assert total_errors == 0
+    assert total_skips == 2
 
 
 # --------------------------------------------------------------------------
