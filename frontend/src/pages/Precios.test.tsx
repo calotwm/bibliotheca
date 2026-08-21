@@ -86,7 +86,7 @@ describe("Precios", () => {
   it("renders the price adjustment form with editorial suggestions", async () => {
     renderPrecios();
     expect(
-      screen.getByRole("heading", { name: "Ajuste de precios por editorial" })
+      screen.getByRole("heading", { name: "Ajuste de precios por editorial o autor" })
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/Editorial/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Categoría/)).toBeInTheDocument();
@@ -116,10 +116,66 @@ describe("Precios", () => {
     expect(importApi.bulkPreview).toHaveBeenCalledTimes(1);
     expect(importApi.bulkPreview).toHaveBeenCalledWith({
       editorial: "Sudamericana",
+      author: null,
       category_id: null,
       action: "price_percent",
       amount: -10,
     });
+  });
+
+  it("renders an Autor input with a datalist of authors", async () => {
+    renderPrecios();
+    expect(screen.getByLabelText("Autor")).toBeInTheDocument();
+    await waitFor(() => {
+      const datalist = document.getElementById("autores");
+      const options = Array.from(datalist?.querySelectorAll("option") ?? []).map(
+        (option) => option.getAttribute("value")
+      );
+      expect(options).toContain("Autor");
+    });
+  });
+
+  it("sends author payload when only author is provided", async () => {
+    const user = userEvent.setup();
+    renderPrecios();
+    await user.type(screen.getByLabelText("Autor"), "Borges");
+    await user.type(screen.getByLabelText(/Monto/), "10");
+    await user.click(screen.getByRole("button", { name: "Previsualizar" }));
+
+    expect(importApi.bulkPreview).toHaveBeenCalledTimes(1);
+    expect(importApi.bulkPreview).toHaveBeenCalledWith({
+      editorial: null,
+      author: "Borges",
+      category_id: null,
+      action: "price_set",
+      amount: 10,
+    });
+  });
+
+  it("shows error when both editorial and author are provided", async () => {
+    const user = userEvent.setup();
+    renderPrecios();
+    await user.type(screen.getByLabelText("Editorial"), "Sudamericana");
+    await user.type(screen.getByLabelText("Autor"), "Borges");
+    await user.type(screen.getByLabelText(/Monto/), "10");
+    await user.click(screen.getByRole("button", { name: "Previsualizar" }));
+
+    expect(
+      await screen.findByText("Proporcione editorial o autor, no ambos.")
+    ).toBeInTheDocument();
+    expect(importApi.bulkPreview).not.toHaveBeenCalled();
+  });
+
+  it("shows error when neither editorial nor author is provided", async () => {
+    const user = userEvent.setup();
+    renderPrecios();
+    await user.type(screen.getByLabelText(/Monto/), "10");
+    await user.click(screen.getByRole("button", { name: "Previsualizar" }));
+
+    expect(
+      await screen.findByText("Proporcione editorial o autor.")
+    ).toBeInTheDocument();
+    expect(importApi.bulkPreview).not.toHaveBeenCalled();
   });
 
   it("renders preview rows formatting old and new prices with formatARS", async () => {
@@ -167,7 +223,7 @@ describe("Precios", () => {
     await user.click(screen.getByRole("button", { name: "Previsualizar" }));
 
     expect(
-      await screen.findByText("No hay libros activos de esa editorial.")
+      await screen.findByText("No hay libros activos que coincidan con el filtro.")
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Aplicar cambios" })
@@ -193,7 +249,7 @@ describe("Precios", () => {
 
     const headings = screen.getAllByRole("heading", { level: 2 });
     const bulkIndex = headings.findIndex(
-      (heading) => heading.textContent === "Ajuste de precios por editorial"
+      (heading) => heading.textContent === "Ajuste de precios por editorial o autor"
     );
     const listIndex = headings.findIndex(
       (heading) => heading.textContent === "Listado de libros"
@@ -268,7 +324,7 @@ describe("Precios", () => {
 
     const headings = screen.getAllByRole("heading", { level: 2 });
     const bulkIndex = headings.findIndex(
-      (heading) => heading.textContent === "Ajuste de precios por editorial"
+      (heading) => heading.textContent === "Ajuste de precios por editorial o autor"
     );
     const listIndex = headings.findIndex(
       (heading) => heading.textContent === "Listado de libros"

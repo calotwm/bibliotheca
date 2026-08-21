@@ -31,6 +31,7 @@ _settings = get_settings()
 def _apply_body(body: BulkUpdateRequest) -> dict:
     return {
         "editorial": body.editorial,
+        "author": body.author,
         "category_id": body.category_id,
         "action": body.action,
         "amount": body.amount,
@@ -54,6 +55,7 @@ async def bulk_preview(
         ) from exc
     return BulkPreviewResponse(
         editorial=body.editorial,
+        author=body.author,
         category_id=body.category_id,
         action=body.action,
         amount=body.amount,
@@ -81,6 +83,7 @@ async def bulk_apply(
     await session.commit()
     return BulkApplyResponse(
         editorial=body.editorial,
+        author=body.author,
         category_id=body.category_id,
         action=body.action,
         amount=body.amount,
@@ -107,6 +110,7 @@ async def bulk_update_books(
     await session.commit()
     return BulkApplyResponse(
         editorial=body.editorial,
+        author=body.author,
         category_id=body.category_id,
         action=body.action,
         amount=body.amount,
