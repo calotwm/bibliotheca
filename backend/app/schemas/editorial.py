@@ -1,9 +1,9 @@
-"""Pydantic schemas for editorial-scoped bulk updates (REQ-BULK)."""
+"""Pydantic schemas for editorial/author-scoped bulk updates (REQ-BULK)."""
 
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 BulkAction = Literal["stock_add", "stock_set", "price_set", "price_percent"]
 
@@ -11,10 +11,21 @@ BulkAction = Literal["stock_add", "stock_set", "price_set", "price_percent"]
 class BulkUpdateRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    editorial: str = Field(min_length=1, max_length=255)
+    editorial: str | None = Field(default=None, max_length=255)
+    author: str | None = Field(default=None, max_length=255)
     category_id: int | None = None
     action: BulkAction
     amount: Decimal
+
+    @model_validator(mode="after")
+    def _validate_scope(self) -> "BulkUpdateRequest":
+        editorial = self.editorial.strip() if self.editorial else ""
+        author = self.author.strip() if self.author else ""
+        if editorial and author:
+            raise ValueError("Proporcione editorial o autor, no ambos.")
+        if not editorial and not author:
+            raise ValueError("Proporcione editorial o autor.")
+        return self
 
 
 class BulkPreviewRow(BaseModel):
@@ -29,7 +40,8 @@ class BulkPreviewRow(BaseModel):
 
 
 class BulkPreviewResponse(BaseModel):
-    editorial: str
+    editorial: str | None = None
+    author: str | None = None
     category_id: int | None = None
     action: str
     amount: Decimal
@@ -38,7 +50,8 @@ class BulkPreviewResponse(BaseModel):
 
 
 class BulkApplyResponse(BaseModel):
-    editorial: str
+    editorial: str | None = None
+    author: str | None = None
     category_id: int | None = None
     action: str
     amount: Decimal

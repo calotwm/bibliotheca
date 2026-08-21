@@ -60,6 +60,7 @@ export function Precios() {
   const isAdmin = user?.role === "admin";
 
   const [editorial, setEditorial] = useState("");
+  const [author, setAuthor] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [operation, setOperation] = useState<PriceOperation>("price_set");
   const [amount, setAmount] = useState("");
@@ -94,6 +95,15 @@ export function Precios() {
     const unique = new Set<string>();
     for (const book of books) {
       const name = book.editorial?.trim();
+      if (name) unique.add(name);
+    }
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [books]);
+
+  const authors = useMemo(() => {
+    const unique = new Set<string>();
+    for (const book of books) {
+      const name = book.author?.trim();
       if (name) unique.add(name);
     }
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
@@ -173,8 +183,14 @@ export function Precios() {
     OPERATIONS.find((item) => item.value === operation) ?? OPERATIONS[0];
 
   function buildPayload(): importApi.BulkPayload | null {
-    if (!editorial.trim()) {
-      setError("Indique la editorial.");
+    const editorialTrimmed = editorial.trim();
+    const authorTrimmed = author.trim();
+    if (editorialTrimmed && authorTrimmed) {
+      setError("Proporcione editorial o autor, no ambos.");
+      return null;
+    }
+    if (!editorialTrimmed && !authorTrimmed) {
+      setError("Proporcione editorial o autor.");
       return null;
     }
     const parsedAmount = Number(amount);
@@ -192,7 +208,8 @@ export function Precios() {
       finalAmount = operation === "raise_percent" ? parsedAmount : -parsedAmount;
     }
     return {
-      editorial: editorial.trim(),
+      editorial: editorialTrimmed || null,
+      author: authorTrimmed || null,
       category_id: categoryId ? Number(categoryId) : null,
       action,
       amount: finalAmount,
@@ -240,11 +257,11 @@ export function Precios() {
   return (
     <div className="space-y-8">
       <section className="rounded-sm border border-navy/10 bg-cream p-4">
-        <h2 className="text-lg font-bold">Ajuste de precios por editorial</h2>
+        <h2 className="text-lg font-bold">Ajuste de precios por editorial o autor</h2>
         <p className="mt-1 text-sm text-ink-soft">
           Fije un precio en ARS o aplique un porcentaje (subir o bajar) a todos
-          los libros activos de una editorial, opcionalmente restringida a una
-          categoría. Revise el resultado antes de aplicar.
+          los libros activos de una editorial o un autor, opcionalmente
+          restringido a una categoría. Revise el resultado antes de aplicar.
         </p>
 
         {!isAdmin && (
@@ -254,9 +271,9 @@ export function Precios() {
           </p>
         )}
 
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <label className="block">
-            <span className="text-sm font-medium">Editorial *</span>
+            <span className="text-sm font-medium">Editorial</span>
             <input
               type="text"
               value={editorial}
@@ -268,6 +285,23 @@ export function Precios() {
             />
             <datalist id="editoriales">
               {editorials.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium">Autor</span>
+            <input
+              type="text"
+              value={author}
+              onChange={(event) => setAuthor(event.target.value)}
+              disabled={!isAdmin}
+              className={inputClass}
+              placeholder="Ej.: Borges"
+              list="autores"
+            />
+            <datalist id="autores">
+              {authors.map((name) => (
                 <option key={name} value={name} />
               ))}
             </datalist>
@@ -340,7 +374,7 @@ export function Precios() {
           <div className="mt-4 space-y-3">
             {preview.affected === 0 ? (
               <p className="text-sm text-ink-soft">
-                No hay libros activos de esa editorial.
+                No hay libros activos que coincidan con el filtro.
               </p>
             ) : (
               <>

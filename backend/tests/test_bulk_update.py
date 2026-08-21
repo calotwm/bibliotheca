@@ -217,6 +217,142 @@ async def test_bulk_audit_logged(auth_headers, session, client):
     assert logs[0].changes_json["action"] == "stock_add"
 
 
+async def test_bulk_author_only_partial_match(auth_headers, session, client):
+    await _seed_book(
+        session,
+        title="Borges",
+        author="Borges, Jorge Luis",
+        editorial="Emece",
+        stock=5,
+    )
+    await _seed_book(
+        session,
+        title="Bolaño",
+        author="Bolaño, Roberto",
+        editorial="Anagrama",
+        stock=5,
+    )
+    response = await client.post(
+        "/api/editorial-bulk-update/apply",
+        json={"author": "borges", "action": "stock_add", "amount": "5"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["affected"] == 1
+    assert response.json()["author"] == "borges"
+    books = await _books_by_title(session)
+    assert books["Borges"].stock == 10
+    assert books["Bolaño"].stock == 5
+
+
+async def test_bulk_author_scoped_by_category(auth_headers, session, client):
+    await _seed_book(
+        session,
+        title="Borges-N",
+        author="Borges, Jorge Luis",
+        category="Novela",
+        stock=1,
+    )
+    poesia_id = await _category_id(session, "Poesía")
+    await _seed_book(
+        session,
+        title="Borges-P",
+        author="Borges, Jorge Luis",
+        category="Poesía",
+        stock=1,
+    )
+    response = await client.post(
+        "/api/editorial-bulk-update/apply",
+        json={
+            "author": "borges",
+            "category_id": poesia_id,
+            "action": "stock_add",
+            "amount": "5",
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["affected"] == 1
+    books = await _books_by_title(session)
+    assert books["Borges-N"].stock == 1
+    assert books["Borges-P"].stock == 6
+
+
+async def test_bulk_author_works_across_all_endpoints(auth_headers, session, client):
+    cases = [
+        ("Borges", "Borges, Jorge Luis"),
+        ("Bolaño", "Bolaño, Roberto"),
+        ("Cortázar", "Cortázar, Julio"),
+    ]
+    for endpoint, (query, full_name) in zip(BULK_ENDPOINTS, cases):
+        await _seed_book(
+            session,
+            title=query,
+            author=full_name,
+            editorial="Emece",
+            stock=5,
+        )
+        response = await client.post(
+            endpoint,
+            json={"author": query.lower(), "action": "stock_add", "amount": "1"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200, endpoint
+        assert response.json()["affected"] == 1, endpoint
+        assert response.json()["author"] == query.lower(), endpoint
+
+
+async def test_bulk_both_editorial_and_author_rejected(auth_headers, session, client):
+    response = await client.post(
+        "/api/editorial-bulk-update/apply",
+        json={
+            "editorial": "Sudamericana",
+            "author": "Borges",
+            "action": "stock_add",
+            "amount": "1",
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+    assert "no ambos" in str(response.json())
+
+
+async def test_bulk_neither_editorial_nor_author_rejected(
+    auth_headers, session, client
+):
+    response = await client.post(
+        "/api/editorial-bulk-update/apply",
+        json={"action": "stock_add", "amount": "1"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+    body = str(response.json())
+    assert "Proporcione editorial o autor." in body
+    assert "no ambos" not in body
+
+
+async def test_bulk_audit_includes_author(auth_headers, session, client):
+    await _seed_book(
+        session,
+        title="Borges",
+        author="Borges, Jorge Luis",
+        editorial="Emece",
+        stock=5,
+    )
+    await client.post(
+        "/api/editorial-bulk-update/apply",
+        json={"author": "Borges", "action": "stock_add", "amount": "3"},
+        headers=auth_headers,
+    )
+    logs = (
+        await session.execute(
+            select(AuditLog).where(AuditLog.action == "bulk_update")
+        )
+    ).scalars().all()
+    assert len(logs) == 1
+    assert logs[0].changes_json["author"] == "Borges"
+
+
 async def test_bulk_requires_auth(client):
     response = await client.post(
         "/api/editorial-bulk-update/apply",

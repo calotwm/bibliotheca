@@ -9,7 +9,8 @@ import { apiFetch } from "./client";
 export type BulkAction = "stock_add" | "stock_set" | "price_set" | "price_percent";
 
 export interface BulkPayload {
-  editorial: string;
+  editorial: string | null;
+  author?: string | null;
   category_id?: number | null;
   action: BulkAction;
   amount: number;

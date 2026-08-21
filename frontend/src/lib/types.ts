@@ -274,7 +274,8 @@ export interface BulkPreviewRow {
 }
 
 export interface BulkPreview {
-  editorial: string;
+  editorial: string | null;
+  author?: string | null;
   category_id: number | null;
   action: string;
   amount: string;
@@ -283,7 +284,8 @@ export interface BulkPreview {
 }
 
 export interface BulkApplyResult {
-  editorial: string;
+  editorial: string | null;
+  author?: string | null;
   category_id: number | null;
   action: string;
   amount: string;

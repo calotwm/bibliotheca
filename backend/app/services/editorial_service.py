@@ -54,12 +54,21 @@ def _field_for(action: str) -> str:
 
 
 async def _matching_books(
-    session: AsyncSession, *, editorial: str, category_id: int | None
+    session: AsyncSession,
+    *,
+    editorial: str | None,
+    author: str | None,
+    category_id: int | None,
 ) -> list[Book]:
-    query = select(Book).where(
-        func.lower(Book.editorial) == editorial.strip().lower(),
-        Book.is_active.is_(True),
-    )
+    query = select(Book).where(Book.is_active.is_(True))
+    if editorial:
+        query = query.where(
+            func.lower(Book.editorial) == editorial.strip().lower()
+        )
+    if author:
+        query = query.where(
+            func.lower(Book.author).like(f"%{author.strip().lower()}%")
+        )
     if category_id is not None:
         query = query.where(Book.category_id == category_id)
     query = query.order_by(Book.title)
@@ -69,7 +78,8 @@ async def _matching_books(
 async def preview_bulk(
     session: AsyncSession,
     *,
-    editorial: str,
+    editorial: str | None,
+    author: str | None = None,
     category_id: int | None,
     action: str,
     amount: Decimal,
@@ -77,7 +87,7 @@ async def preview_bulk(
     """Return the affected books with computed old -> new values (no writes)."""
     coerced = _validate_amount(action, amount)
     books = await _matching_books(
-        session, editorial=editorial, category_id=category_id
+        session, editorial=editorial, author=author, category_id=category_id
     )
     field = _field_for(action)
     rows: list[BulkPreviewRow] = []
@@ -105,7 +115,8 @@ async def apply_bulk(
     session: AsyncSession,
     *,
     admin: User,
-    editorial: str,
+    editorial: str | None,
+    author: str | None = None,
     category_id: int | None,
     action: str,
     amount: Decimal,
@@ -113,7 +124,7 @@ async def apply_bulk(
     """Apply the operation to every matching book in one transaction (caller commits)."""
     coerced = _validate_amount(action, amount)
     books = await _matching_books(
-        session, editorial=editorial, category_id=category_id
+        session, editorial=editorial, author=author, category_id=category_id
     )
     field = _field_for(action)
     for book in books:
@@ -134,6 +145,7 @@ async def apply_bulk(
         action="bulk_update",
         changes={
             "editorial": editorial,
+            "author": author,
             "category_id": category_id,
             "action": action,
             "amount": str(amount),
