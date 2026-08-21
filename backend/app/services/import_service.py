@@ -82,6 +82,10 @@ async def _classify_rows(
     rows_payload: list[ImportRow] = []
     errors: list[ImportRowError] = []
     for row in rows:
+        if row.skip_reason is not None:
+            skips += 1
+            # Noise rows never enter the payload (nor apply) and are never errors.
+            continue
         if row.error is not None:
             row_errors += 1
             errors.append(

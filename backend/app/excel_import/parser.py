@@ -66,7 +66,12 @@ class EmptyWorkbookError(ExcelImportError):
 
 @dataclass
 class ParsedRow:
-    """One data row. ``error`` is set (instead of ``price``/``stock``) when malformed."""
+    """One data row.
+
+    ``error`` is set (instead of ``price``/``stock``) when malformed. ``skip_reason``
+    marks data-entry noise that is silently skipped (counted as skips, never errors)
+    and never reaches apply.
+    """
 
     sheet: str
     category: str | None
@@ -78,6 +83,7 @@ class ParsedRow:
     stock: int | None
     row_number: int
     error: str | None = None
+    skip_reason: str | None = None
 
 
 @dataclass
@@ -187,20 +193,64 @@ def _build_row(
     price_raw = values.get("price")
     stock_raw = values.get("stock")
 
-    errors: list[str] = []
+    # Clean and parse every field first: skip and error rows both carry the
+    # parsed values so summary accounting stays accurate.
+    title = _clean(title_raw)
+    author = _clean(author_raw)
+    editorial = _clean(editorial_raw)
+    genre = _clean(genre_raw)
+    price = _parse_price(price_raw) if price_raw is not None else None
+    stock = _parse_stock(stock_raw) if stock_raw is not None else None
+
+    if genre_driven:
+        resolved = category_for_genre(genre, available_categories)
+        row_category = resolved if resolved is not None else GENRE_FALLBACK_CATEGORY
+    else:
+        row_category = category
+
+    # Data-entry noise heuristics: silently skip (counted as skips, never as
+    # errors) BEFORE genuine validation-error accumulation.
     if _is_datetime(title_raw):
-        errors.append("Unexpected date value in title")
+        return ParsedRow(
+            sheet=sheet_name,
+            category=row_category,
+            title=title or "",
+            author=author or "",
+            editorial=editorial or "",
+            genre=genre,
+            price=price,
+            stock=stock,
+            row_number=row_number,
+            skip_reason="Unexpected date value in title",
+        )
+    if (
+        not title
+        and not author
+        and not editorial
+        and isinstance(price_raw, str)
+        and price_raw.strip()
+        and price is None
+    ):
+        return ParsedRow(
+            sheet=sheet_name,
+            category=row_category,
+            title=title or "",
+            author=author or "",
+            editorial=editorial or "",
+            genre=genre,
+            price=price,
+            stock=stock,
+            row_number=row_number,
+            skip_reason="footer/summary row",
+        )
+
+    errors: list[str] = []
     if _is_datetime(author_raw):
         errors.append("Unexpected date value in author")
     if _is_datetime(editorial_raw):
         errors.append("Unexpected date value in editorial")
     if _is_datetime(genre_raw):
         errors.append("Unexpected date value in genre")
-
-    title = _clean(title_raw)
-    author = _clean(author_raw)
-    editorial = _clean(editorial_raw)
-    genre = _clean(genre_raw)
 
     if not title:
         errors.append("Missing title")
@@ -209,22 +259,16 @@ def _build_row(
     if not editorial:
         errors.append("Missing editorial")
 
-    price = _parse_price(price_raw) if price_raw is not None else None
     if price_raw is None:
         errors.append("Missing price")
     elif price is None:
         errors.append(f"Invalid price {price_raw!r}")
-    stock = _parse_stock(stock_raw) if stock_raw is not None else None
+
     if stock_raw is None:
         errors.append("Missing stock")
     elif stock is None:
         errors.append(f"Invalid stock {stock_raw!r}")
 
-    if genre_driven:
-        resolved = category_for_genre(genre, available_categories)
-        row_category = resolved if resolved is not None else GENRE_FALLBACK_CATEGORY
-    else:
-        row_category = category
     if row_category is None:
         errors.append(f"No category mapped for sheet {sheet_name!r}")
 
