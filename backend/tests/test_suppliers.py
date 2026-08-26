@@ -13,6 +13,8 @@ SUPPLIER_PAYLOAD = {
     "email": "ventas@distribuidoradelsur.com.ar",
     "address": "Av. de Mayo 789",
     "notes": "Entrega semanal",
+    "discount": "50% / 40%",
+    "sale_condition": "Neto 30 días",
     "editorials": ["Sudamericana", "Planeta"],
 }
 
@@ -32,10 +34,14 @@ async def test_supplier_crud_happy_path(auth_headers, session, client):
     supplier_id = data["id"]
     assert data["name"] == SUPPLIER_PAYLOAD["name"]
     assert data["editorials"] == ["Planeta", "Sudamericana"]
+    assert data["discount"] == SUPPLIER_PAYLOAD["discount"]
+    assert data["sale_condition"] == SUPPLIER_PAYLOAD["sale_condition"]
 
     detail = await client.get(f"/api/suppliers/{supplier_id}", headers=auth_headers)
     assert detail.status_code == 200
     assert detail.json()["contact_name"] == "María López"
+    assert detail.json()["discount"] == "50% / 40%"
+    assert detail.json()["sale_condition"] == "Neto 30 días"
 
     listed = await client.get("/api/suppliers", headers=auth_headers)
     assert listed.status_code == 200
@@ -53,6 +59,15 @@ async def test_supplier_crud_happy_path(auth_headers, session, client):
     assert updated.status_code == 200
     assert updated.json()["phone"] == "11-5555-9999"
     assert updated.json()["editorials"] == ["Planeta"]
+
+    updated_fields = await client.put(
+        f"/api/suppliers/{supplier_id}",
+        json={"discount": "30%", "sale_condition": "Contado"},
+        headers=auth_headers,
+    )
+    assert updated_fields.status_code == 200
+    assert updated_fields.json()["discount"] == "30%"
+    assert updated_fields.json()["sale_condition"] == "Contado"
 
     mapping = await client.put(
         f"/api/suppliers/{supplier_id}/editorials",
@@ -85,6 +100,31 @@ async def test_supplier_duplicate_name_409(auth_headers, client):
     assert first.status_code == 201
     duplicate = await client.post("/api/suppliers", json=SUPPLIER_PAYLOAD, headers=auth_headers)
     assert duplicate.status_code == 409
+
+
+async def test_supplier_nullable_fields_omit(auth_headers, client):
+    created = await client.post(
+        "/api/suppliers",
+        json={
+            "name": "Distribuidora Sin Datos",
+            "contact_name": None,
+            "email": None,
+            "editorials": [],
+        },
+        headers=auth_headers,
+    )
+    assert created.status_code == 201
+    assert created.json()["discount"] is None
+    assert created.json()["sale_condition"] is None
+
+    updated = await client.put(
+        f"/api/suppliers/{created.json()['id']}",
+        json={"discount": None, "sale_condition": None},
+        headers=auth_headers,
+    )
+    assert updated.status_code == 200
+    assert updated.json()["discount"] is None
+    assert updated.json()["sale_condition"] is None
 
 
 async def test_supplier_cashier_cannot_write(auth_headers, session, client):
@@ -128,3 +168,8 @@ async def test_supplier_audited_on_create_and_delete(auth_headers, session, clie
         )
     ).scalars().all()
     assert [log.action for log in audit] == ["create", "delete"]
+    create_log = next(log for log in audit if log.action == "create")
+    assert "discount" in create_log.changes_json
+    assert create_log.changes_json["discount"] == SUPPLIER_PAYLOAD["discount"]
+    assert "sale_condition" in create_log.changes_json
+    assert create_log.changes_json["sale_condition"] == SUPPLIER_PAYLOAD["sale_condition"]

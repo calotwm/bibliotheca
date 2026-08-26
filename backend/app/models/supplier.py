@@ -16,6 +16,8 @@ class Supplier(TimestampMixin, Base):
     email: Mapped[str | None] = mapped_column(String(255))
     address: Mapped[str | None] = mapped_column(String(512))
     notes: Mapped[str | None] = mapped_column(Text)
+    discount: Mapped[str | None] = mapped_column(Text)
+    sale_condition: Mapped[str | None] = mapped_column(Text)
 
     editorials: Mapped[list["SupplierEditorial"]] = relationship(
         back_populates="supplier", cascade="all, delete-orphan"

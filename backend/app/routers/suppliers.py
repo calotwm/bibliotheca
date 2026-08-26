@@ -56,6 +56,8 @@ def _to_read(supplier: Supplier) -> SupplierRead:
         email=supplier.email,
         address=supplier.address,
         notes=supplier.notes,
+        discount=supplier.discount,
+        sale_condition=supplier.sale_condition,
         editorials=_editorial_names(supplier),
         created_at=supplier.created_at,
         updated_at=supplier.updated_at,
@@ -164,6 +166,8 @@ async def create_supplier(
         email=body.email,
         address=body.address,
         notes=body.notes,
+        discount=body.discount,
+        sale_condition=body.sale_condition,
     )
     session.add(supplier)
     # Pending supplier: the editorial collection is initialized empty (no lazy
@@ -183,6 +187,8 @@ async def create_supplier(
                 "phone": supplier.phone,
                 "email": supplier.email,
                 "address": supplier.address,
+                "discount": supplier.discount,
+                "sale_condition": supplier.sale_condition,
                 "editorials": editorials,
             },
         )

@@ -14,6 +14,8 @@ class SupplierBase(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     address: str | None = Field(default=None, max_length=512)
     notes: str | None = None
+    discount: str | None = None
+    sale_condition: str | None = None
     editorials: list[str] = Field(default_factory=list)
 
 
@@ -30,6 +32,8 @@ class SupplierUpdate(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     address: str | None = Field(default=None, max_length=512)
     notes: str | None = None
+    discount: str | None = None
+    sale_condition: str | None = None
     editorials: list[str] | None = None
 
 
@@ -45,6 +49,8 @@ class SupplierRead(BaseModel):
     email: str | None = None
     address: str | None = None
     notes: str | None = None
+    discount: str | None = None
+    sale_condition: str | None = None
     editorials: list[str] = []
     created_at: datetime
     updated_at: datetime
