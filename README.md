@@ -61,6 +61,17 @@ Run migrations:
 py -m alembic upgrade head
 ```
 
+Seed distributor suppliers (post-deploy, Railway one-off):
+
+```powershell
+py scripts/seed_suppliers.py
+```
+
+The script reads `scripts/seed_suppliers.csv` and inserts each distributor
+missing by `name`. It is idempotent — re-running it skips suppliers that already
+exist, so a safe repeated execution is fine (first run reports `inserted=17
+skipped=0`, subsequent runs `inserted=0 skipped=17`).
+
 ### Serving the built SPA
 
 When `frontend/dist` exists (a fresh `npm run build`), the backend serves it
