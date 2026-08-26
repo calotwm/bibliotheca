@@ -80,4 +80,28 @@ describe("Proveedores", () => {
       );
     });
   });
+
+  it("includes discount and sale_condition in the update payload", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "Editar Larria" }));
+
+    const discountInput = screen.getByLabelText(/Descuento/);
+    await user.clear(discountInput);
+    await user.type(discountInput, "45%");
+    const conditionInput = screen.getByLabelText(/Condición de venta/);
+    await user.clear(conditionInput);
+    await user.type(conditionInput, "Venta directa por mail");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => {
+      expect(suppliersApi.updateSupplier).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          discount: "45%",
+          sale_condition: "Venta directa por mail",
+        })
+      );
+    });
+  });
 });

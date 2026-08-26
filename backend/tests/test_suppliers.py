@@ -45,7 +45,9 @@ async def test_supplier_crud_happy_path(auth_headers, session, client):
 
     listed = await client.get("/api/suppliers", headers=auth_headers)
     assert listed.status_code == 200
-    assert any(item["id"] == supplier_id for item in listed.json())
+    listed_item = next(item for item in listed.json() if item["id"] == supplier_id)
+    assert listed_item["discount"] == SUPPLIER_PAYLOAD["discount"]
+    assert listed_item["sale_condition"] == SUPPLIER_PAYLOAD["sale_condition"]
 
     search = await client.get("/api/suppliers?q=del%20sur", headers=auth_headers)
     assert search.status_code == 200
@@ -173,3 +175,32 @@ async def test_supplier_audited_on_create_and_delete(auth_headers, session, clie
     assert create_log.changes_json["discount"] == SUPPLIER_PAYLOAD["discount"]
     assert "sale_condition" in create_log.changes_json
     assert create_log.changes_json["sale_condition"] == SUPPLIER_PAYLOAD["sale_condition"]
+
+
+async def test_supplier_update_audited_with_field_diff(auth_headers, session, client):
+    created = await client.post("/api/suppliers", json=SUPPLIER_PAYLOAD, headers=auth_headers)
+    supplier_id = created.json()["id"]
+
+    updated = await client.put(
+        f"/api/suppliers/{supplier_id}",
+        json={"discount": "30%", "sale_condition": "Contado"},
+        headers=auth_headers,
+    )
+    assert updated.status_code == 200
+    assert updated.json()["discount"] == "30%"
+    assert updated.json()["sale_condition"] == "Contado"
+
+    from app.models import AuditLog
+
+    audit = (
+        await session.execute(
+            select(AuditLog).where(
+                AuditLog.entity_type == "supplier",
+                AuditLog.entity_id == supplier_id,
+                AuditLog.action == "update",
+            )
+        )
+    ).scalars().all()
+    assert len(audit) == 1
+    assert audit[0].changes_json["discount"] == {"old": "50% / 40%", "new": "30%"}
+    assert audit[0].changes_json["sale_condition"] == {"old": "Neto 30 días", "new": "Contado"}
