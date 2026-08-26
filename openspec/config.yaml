@@ -1,0 +1,69 @@
+schema: spec-driven
+
+context: |
+  Bookstore inventory & sales webapp ("Ojo de Poeta - Libros"). Backend: FastAPI + SQLAlchemy 2.0 async (PostgreSQL/asyncpg in prod, SQLite/aiosqlite in dev+test), Alembic async migrations, Pydantic v2 settings with fail-fast env validation, JWT auth (python-jose + bcrypt), slowapi rate limiting.
+  Frontend: React 19 + Vite 8 + TypeScript (strict) + Tailwind v4, TanStack Query 5, React Router 7.
+  Layout: backend/app/{config,db,models,routers,schemas,services,security,excel_import} + backend/tests; frontend/src/{api,auth,components,lib,pages} with colocated *.test.tsx.
+  Conventions: conventional commits, English code/identifiers/comments, Spanish README and UI copy.
+
+strict_tdd: true
+
+testing:
+  backend:
+    framework: pytest + pytest-asyncio
+    command: py -m pytest
+    cwd: backend
+    layers:
+      unit: true
+      integration: true        # httpx ASGITransport + in-memory SQLite (StaticPool) + dependency_overrides
+      e2e: false
+    coverage: false            # pytest-cov not installed
+    quality:
+      linter: false
+      type_checker: false
+      formatter: false
+  frontend:
+    framework: vitest + React Testing Library
+    command: npm run test      # vitest run; watch: npm run test:watch
+    cwd: frontend
+    layers:
+      unit: true
+      integration: true        # jsdom + RTL renders with providers
+      e2e: false
+    coverage: false            # @vitest/coverage-v8 not installed
+    quality:
+      linter: false
+      type_checker: true       # tsc -b (strict) via npm run build
+      formatter: false
+
+orchestration:
+  delivery_strategy: ask-on-risk
+  review_budget_lines: 400
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    guidelines:
+      - Follow existing code patterns
+    tdd: true
+    test_command:
+      backend: py -m pytest
+      frontend: npm run test
+  verify:
+    test_command:
+      backend: py -m pytest
+      frontend: npm run test
+    build_command: npm run build
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
