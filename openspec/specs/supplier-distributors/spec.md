@@ -93,25 +93,44 @@ reformatting, preserving raw values such as `50% / 40%` and `;`-separated emails
 
 ### Requirement: Proveedores UI surfaces fields
 
-The Proveedores page MUST render "Descuento" and "Condición de venta" table
-columns and MUST include form inputs for both, editable on create and update.
+The Proveedores page MUST render table columns in this exact order: Nombre,
+Contacto, Teléfono, Email, Cond. venta, Notas, DTO, followed by the actions
+column. The "Condición de venta" header MUST be shortened to "Cond. venta" and
+the "Descuento" header MUST be renamed to "DTO". The page MUST NOT render any
+Editoriales column. The supplier form MUST include "Condición de venta",
+"Notas", and "DTO" inputs and MUST NOT include an "Editoriales" input. The
+create/update payload MUST include `sale_condition`, `notes`, and `discount`
+and MUST NOT include `editorials`.
 
 #### Scenario: Render columns
 
-- GIVEN a supplier with both fields set
+- GIVEN a supplier with `discount`, `sale_condition`, and `notes` set
 - WHEN Proveedores renders the table
-- THEN both columns show their values
+- THEN columns "Cond. venta", "Notas", and "DTO" show their values
+- AND no "Editoriales" column is present
 
 #### Scenario: Edit fields
 
 - GIVEN the supplier form
-- WHEN the user enters "Descuento" and "Condición de venta" and saves
-- THEN the payload includes both fields and the update persists them
+- WHEN the user enters "DTO", "Condición de venta", and "Notas" and saves
+- THEN the payload includes `sale_condition`, `notes`, and `discount`
+- AND the payload excludes `editorials`
+- AND the update persists the three fields
+
+#### Scenario: Create supplier payload
+
+- GIVEN the supplier form for a new supplier
+- WHEN the user fills "Condición de venta", "Notas", and "DTO" and submits
+- THEN the create payload includes `sale_condition`, `notes`, and `discount`
+- AND the create payload excludes `editorials`
 
 ### Requirement: Test coverage
 
-`test_suppliers.py` MUST assert the new fields, and a new `Proveedores.test.tsx`
-MUST cover rendering and editing.
+`test_suppliers.py` MUST assert the new fields, and the Proveedores test suite
+MUST assert the renamed column headers ("Cond. venta", "Notas", "DTO"), the
+fixture cell values, and the create/update payloads containing `sale_condition`,
+`notes`, and `discount` while excluding `editorials`, without referencing
+"Editoriales".
 
 #### Scenario: Backend assertions
 
@@ -121,6 +140,7 @@ MUST cover rendering and editing.
 
 #### Scenario: Frontend assertions
 
-- GIVEN `Proveedores.test.tsx`
-- WHEN tests run
-- THEN both columns render and the form persists both fields
+- GIVEN the updated `Proveedores.test.tsx`
+- WHEN the frontend tests run
+- THEN the column headers "Cond. venta", "Notas", and "DTO" render and the payload assertions pass without any Editoriales reference
+- AND `npm run build` passes tsc strict
