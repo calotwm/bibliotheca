@@ -47,10 +47,17 @@ describe("Proveedores", () => {
     vi.mocked(suppliersApi.deleteSupplier).mockResolvedValue(undefined);
   });
 
-  it("renders the Descuento and Condición de venta column headers", async () => {
+  it("renders the Cond. venta, Notas, and DTO column headers", async () => {
     renderPage();
-    expect(await screen.findByText("Descuento")).toBeInTheDocument();
-    expect(screen.getByText("Condición de venta")).toBeInTheDocument();
+    expect(await screen.findByText("Cond. venta")).toBeInTheDocument();
+    expect(screen.getByText("Notas")).toBeInTheDocument();
+    expect(screen.getByText("DTO")).toBeInTheDocument();
+  });
+
+  it("renders no Editoriales column", async () => {
+    renderPage();
+    await screen.findByText("Larria");
+    expect(screen.queryByText("Editoriales")).not.toBeInTheDocument();
   });
 
   it("shows the fixture values in the table cells", async () => {
@@ -58,50 +65,56 @@ describe("Proveedores", () => {
     expect(await screen.findByText("Larria")).toBeInTheDocument();
     expect(screen.getByText("50% / 40%")).toBeInTheDocument();
     expect(screen.getByText("Venta directa por whatsapp")).toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
-  it("includes discount and sale_condition in the create payload", async () => {
+  it("includes sale_condition, notes, and discount in the create payload and excludes editorials", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("button", { name: "Nuevo proveedor" }));
 
     await user.type(screen.getByLabelText(/Nombre/), "Nuevo Distribuidor");
-    await user.type(screen.getByLabelText(/Descuento/), "30%");
+    await user.type(screen.getByLabelText(/DTO/), "30%");
     await user.type(screen.getByLabelText(/Condición de venta/), "Contado");
+    await user.type(screen.getByLabelText(/Notas/), "Entrega los jueves");
     await user.click(screen.getByRole("button", { name: "Crear proveedor" }));
 
     await waitFor(() => {
-      expect(suppliersApi.createSupplier).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: "Nuevo Distribuidor",
-          discount: "30%",
-          sale_condition: "Contado",
-        })
-      );
+      const payload = vi.mocked(suppliersApi.createSupplier).mock.calls[0][0] as unknown as Record<string, unknown>;
+      expect(payload).toMatchObject({
+        name: "Nuevo Distribuidor",
+        discount: "30%",
+        sale_condition: "Contado",
+        notes: "Entrega los jueves",
+      });
+      expect(payload).not.toHaveProperty("editorials");
     });
   });
 
-  it("includes discount and sale_condition in the update payload", async () => {
+  it("includes sale_condition, notes, and discount in the update payload and excludes editorials", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(await screen.findByRole("button", { name: "Editar Larria" }));
 
-    const discountInput = screen.getByLabelText(/Descuento/);
+    const discountInput = screen.getByLabelText(/DTO/);
     await user.clear(discountInput);
     await user.type(discountInput, "45%");
     const conditionInput = screen.getByLabelText(/Condición de venta/);
     await user.clear(conditionInput);
     await user.type(conditionInput, "Venta directa por mail");
+    const notesInput = screen.getByLabelText(/Notas/);
+    await user.clear(notesInput);
+    await user.type(notesInput, "Pedido mínimo $5000");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     await waitFor(() => {
-      expect(suppliersApi.updateSupplier).toHaveBeenCalledWith(
-        1,
-        expect.objectContaining({
-          discount: "45%",
-          sale_condition: "Venta directa por mail",
-        })
-      );
+      const payload = vi.mocked(suppliersApi.updateSupplier).mock.calls[0][1] as unknown as Record<string, unknown>;
+      expect(payload).toMatchObject({
+        discount: "45%",
+        sale_condition: "Venta directa por mail",
+        notes: "Pedido mínimo $5000",
+      });
+      expect(payload).not.toHaveProperty("editorials");
     });
   });
 });

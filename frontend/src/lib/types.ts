@@ -124,7 +124,6 @@ export interface SupplierPayload {
   notes?: string | null;
   discount?: string | null;
   sale_condition?: string | null;
-  editorials?: string[];
 }
 
 export interface DaySummary {

@@ -9,13 +9,6 @@ import { PencilIcon, PlusIcon, TrashIcon } from "../components/icons";
 import type { Column } from "../components/DataTable";
 import type { Supplier, SupplierPayload } from "../lib/types";
 
-function parseEditorials(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 interface SupplierFormProps {
   initial: Supplier | null;
   submitting: boolean;
@@ -33,7 +26,6 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [discount, setDiscount] = useState(initial?.discount ?? "");
   const [saleCondition, setSaleCondition] = useState(initial?.sale_condition ?? "");
-  const [editorials, setEditorials] = useState((initial?.editorials ?? []).join(", "));
   const [validation, setValidation] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent) {
@@ -52,7 +44,6 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
       notes: notes.trim() || null,
       discount: discount.trim() || null,
       sale_condition: saleCondition.trim() || null,
-      editorials: parseEditorials(editorials),
     });
   }
 
@@ -79,7 +70,7 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
         </label>
         <label className="block">
-          <span className="text-sm font-medium">Descuento</span>
+          <span className="text-sm font-medium">DTO</span>
           <input type="text" value={discount} onChange={(e) => setDiscount(e.target.value)} className={inputClass} />
         </label>
         <label className="block">
@@ -89,10 +80,6 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
         <label className="block">
           <span className="text-sm font-medium">Dirección</span>
           <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass} />
-        </label>
-        <label className="block sm:col-span-2">
-          <span className="text-sm font-medium">Editoriales (separadas por coma)</span>
-          <input type="text" value={editorials} onChange={(e) => setEditorials(e.target.value)} className={inputClass} />
         </label>
         <label className="block sm:col-span-2">
           <span className="text-sm font-medium">Notas</span>
@@ -165,18 +152,9 @@ export function Proveedores() {
     { key: "contact_name", header: "Contacto", render: (row) => row.contact_name ?? "—" },
     { key: "phone", header: "Teléfono", render: (row) => row.phone ?? "—" },
     { key: "email", header: "Email", render: (row) => row.email ?? "—" },
-    { key: "discount", header: "Descuento", render: (row) => row.discount ?? "—" },
-    { key: "sale_condition", header: "Condición de venta", render: (row) => row.sale_condition ?? "—" },
-    {
-      key: "editorials",
-      header: "Editoriales",
-      render: (row) =>
-        row.editorials.length > 0 ? (
-          <span className="text-xs text-ink-soft">{row.editorials.join(", ")}</span>
-        ) : (
-          "—"
-        ),
-    },
+    { key: "sale_condition", header: "Cond. venta", render: (row) => row.sale_condition ?? "—" },
+    { key: "notes", header: "Notas", render: (row) => row.notes ?? "—" },
+    { key: "discount", header: "DTO", render: (row) => row.discount ?? "—" },
     {
       key: "actions",
       header: "",
