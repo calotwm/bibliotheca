@@ -108,6 +108,8 @@ export interface Supplier {
   email: string | null;
   address: string | null;
   notes: string | null;
+  discount: string | null;
+  sale_condition: string | null;
   editorials: string[];
   created_at: string;
   updated_at: string;
@@ -120,6 +122,8 @@ export interface SupplierPayload {
   email?: string | null;
   address?: string | null;
   notes?: string | null;
+  discount?: string | null;
+  sale_condition?: string | null;
   editorials?: string[];
 }
 

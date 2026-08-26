@@ -31,6 +31,8 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
   const [email, setEmail] = useState(initial?.email ?? "");
   const [address, setAddress] = useState(initial?.address ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [discount, setDiscount] = useState(initial?.discount ?? "");
+  const [saleCondition, setSaleCondition] = useState(initial?.sale_condition ?? "");
   const [editorials, setEditorials] = useState((initial?.editorials ?? []).join(", "));
   const [validation, setValidation] = useState<string | null>(null);
 
@@ -48,6 +50,8 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
       email: email.trim() || null,
       address: address.trim() || null,
       notes: notes.trim() || null,
+      discount: discount.trim() || null,
+      sale_condition: saleCondition.trim() || null,
       editorials: parseEditorials(editorials),
     });
   }
@@ -73,6 +77,14 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
         <label className="block">
           <span className="text-sm font-medium">Email</span>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">Descuento</span>
+          <input type="text" value={discount} onChange={(e) => setDiscount(e.target.value)} className={inputClass} />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">Condición de venta</span>
+          <input type="text" value={saleCondition} onChange={(e) => setSaleCondition(e.target.value)} className={inputClass} />
         </label>
         <label className="block">
           <span className="text-sm font-medium">Dirección</span>
@@ -153,6 +165,8 @@ export function Proveedores() {
     { key: "contact_name", header: "Contacto", render: (row) => row.contact_name ?? "—" },
     { key: "phone", header: "Teléfono", render: (row) => row.phone ?? "—" },
     { key: "email", header: "Email", render: (row) => row.email ?? "—" },
+    { key: "discount", header: "Descuento", render: (row) => row.discount ?? "—" },
+    { key: "sale_condition", header: "Condición de venta", render: (row) => row.sale_condition ?? "—" },
     {
       key: "editorials",
       header: "Editoriales",
