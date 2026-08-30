@@ -1,24 +1,23 @@
 """Sales POS endpoints: create, list, and detail."""
 
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
-from sqlalchemy import text
 
 from ..config import get_settings
 from ..core.timezone import period_filters
 from ..db import get_session
 from ..models import Sale, SaleItem, User
-from ..schemas.sale import SaleCreate, SaleItemRead, SaleListRead, SaleRead
+from ..schemas.sale import SaleCreate, SaleItemRead, SaleListRead, SaleRead, SaleUpdate
 from ..security.deps import require_admin, require_user
 from ..security.limiter import limiter
 from ..services import pdf_service
+from ..services.audit import log_audit
 from ..services.sale_service import (
     BookUnavailableError,
     OversellError,
@@ -149,6 +148,53 @@ async def list_sales(
         )
         for sale, count in rows
     ]
+
+
+@router.patch("/{sale_id}", response_model=SaleRead)
+@limiter.limit(_settings.rate_limit_api)
+async def update_sale(
+    request: Request,
+    sale_id: int,
+    body: SaleUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_user)],
+) -> SaleRead:
+    """Update sale header fields (seller, payment method, customer data).
+
+    Only the fields present in the body are changed. Totals, items and the
+    existing invoice are left untouched. ``Seller null`` clears the seller.
+    """
+    sale = (
+        await session.execute(
+            select(Sale)
+            .options(selectinload(Sale.items).selectinload(SaleItem.book))
+            .where(Sale.id == sale_id)
+        )
+    ).scalar_one_or_none()
+    if sale is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found"
+        )
+
+    fields = body.model_dump(exclude_unset=True)
+    changes: dict[str, Any] = {}
+    for field, value in fields.items():
+        old = getattr(sale, field)
+        if old != value:
+            changes[field] = {"old": old, "new": value}
+            setattr(sale, field, value)
+
+    if changes:
+        await log_audit(
+            session,
+            user_id=user.id,
+            entity_type="sale",
+            entity_id=sale.id,
+            action="update",
+            changes=changes,
+        )
+    await session.commit()
+    return _sale_to_read(sale)
 
 
 @router.get("/{sale_id}", response_model=SaleRead)
