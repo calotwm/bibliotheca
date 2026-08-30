@@ -5,7 +5,6 @@ totals and value, today's sales, the low-stock watchlist, out-of-stock count,
 and the ten most recent sales. All aggregations are dialect-portable.
 """
 
-from datetime import date, datetime, time
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated
 
@@ -14,6 +13,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
+from ..core.timezone import ba_today, bound_for_dialect, day_bounds_utc
 from ..db import get_session
 from ..models import Book, Sale, SaleItem, User
 from ..schemas.reports import DashboardRead, LowStockItem, RecentSaleRead, TodaySales
@@ -42,9 +42,10 @@ async def dashboard(
     low_stock_limit: int = Query(10, ge=1, le=50),
 ) -> DashboardRead:
     threshold = _settings.low_stock_threshold
-    today = date.today()
-    day_start = datetime.combine(today, time.min)
-    day_end = datetime.combine(today, time.max)
+    dialect = session.get_bind().dialect.name
+    day_start, day_end = day_bounds_utc(ba_today())
+    day_start = bound_for_dialect(day_start, dialect_name=dialect)
+    day_end = bound_for_dialect(day_end, dialect_name=dialect)
 
     total_books, total_units, stock_value, out_of_stock = (
         await session.execute(
@@ -115,6 +116,7 @@ async def dashboard(
                 sale_number=sale.sale_number,
                 date=sale.date,
                 total=sale.total,
+                seller=sale.seller,
                 payment_method=sale.payment_method,
                 customer_name=sale.customer_name,
                 created_by=sale.created_by,

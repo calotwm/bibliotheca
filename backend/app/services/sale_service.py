@@ -40,6 +40,7 @@ async def create_sale(
     *,
     cashier: User,
     items: list[SaleItemCreate],
+    seller: str,
     payment_method: str | None = None,
     customer_name: str | None = None,
     customer_cuit: str | None = None,
@@ -54,6 +55,7 @@ async def create_sale(
     sale = Sale(
         sale_number=sale_number,
         total=Decimal("0.00"),
+        seller=seller,
         payment_method=payment_method,
         customer_name=customer_name,
         customer_cuit=customer_cuit,
@@ -117,6 +119,7 @@ async def create_sale(
         changes={
             "sale_number": sale.sale_number,
             "total": str(sale.total),
+            "seller": seller,
             "items": len(items),
         },
     )

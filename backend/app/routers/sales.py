@@ -1,6 +1,6 @@
 """Sales POS endpoints: create, list, and detail."""
 
-from datetime import date, datetime, time
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import text
 
 from ..config import get_settings
+from ..core.timezone import period_filters
 from ..db import get_session
 from ..models import Sale, SaleItem, User
 from ..schemas.sale import SaleCreate, SaleItemRead, SaleListRead, SaleRead
@@ -47,6 +48,7 @@ def _sale_to_read(sale: Sale) -> SaleRead:
         sale_number=sale.sale_number,
         date=sale.date,
         total=sale.total,
+        seller=sale.seller,
         payment_method=sale.payment_method,
         customer_name=sale.customer_name,
         customer_cuit=sale.customer_cuit,
@@ -70,6 +72,7 @@ async def create_sale_endpoint(
             session,
             cashier=user,
             items=body.items,
+            seller=body.seller,
             payment_method=body.payment_method,
             customer_name=body.customer_name,
             customer_cuit=body.customer_cuit,
@@ -119,10 +122,15 @@ async def list_sales(
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
-    if start_date is not None:
-        query = query.where(Sale.date >= datetime.combine(start_date, time.min))
-    if end_date is not None:
-        query = query.where(Sale.date <= datetime.combine(end_date, time.max))
+    if start_date is not None or end_date is not None:
+        query = query.where(
+            *period_filters(
+                Sale.date,
+                start_date,
+                end_date,
+                dialect_name=session.get_bind().dialect.name,
+            )
+        )
 
     rows = (await session.execute(query)).all()
     return [
@@ -131,6 +139,7 @@ async def list_sales(
             sale_number=sale.sale_number,
             date=sale.date,
             total=sale.total,
+            seller=sale.seller,
             payment_method=sale.payment_method,
             customer_name=sale.customer_name,
             customer_cuit=sale.customer_cuit,

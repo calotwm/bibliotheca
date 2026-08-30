@@ -81,10 +81,41 @@ class RecentSaleRead(BaseModel):
     sale_number: int
     date: datetime
     total: Decimal
+    seller: str | None = None
     payment_method: str | None = None
     customer_name: str | None = None
     created_by: int | None = None
     item_count: int
+
+
+class SalesDetailRow(BaseModel):
+    sale_id: int
+    sale_number: int
+    date: date
+    title: str
+    author: str
+    editorial: str
+    category: str | None = None
+    unit_price: Decimal
+    quantity: int
+    subtotal: Decimal
+    stock: int
+    seller: str | None = None
+    payment_method: str | None = None
+
+
+class SellerSummary(BaseModel):
+    seller: str
+    sale_count: int
+    total_revenue: Decimal
+    shared_sale_count: int
+    shared_revenue: Decimal
+
+
+class SellerReport(BaseModel):
+    start_date: date | None = None
+    end_date: date | None = None
+    sellers: list[SellerSummary] = []
 
 
 class DashboardRead(BaseModel):

@@ -61,6 +61,7 @@ async def _seed_sale(session, book: Book, quantity=1, when=None) -> Sale:
         session,
         cashier=await _admin(session),
         items=[SaleItemCreate(book_id=book.id, quantity=quantity)],
+        seller="Cande",
     )
     if when is not None:
         sale.date = when

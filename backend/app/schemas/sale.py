@@ -2,8 +2,11 @@
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+SellerName = Literal["Cande", "Julieta", "Cande y Julieta"]
 
 
 class SaleItemCreate(BaseModel):
@@ -15,6 +18,7 @@ class SaleCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     items: list[SaleItemCreate] = Field(min_length=1)
+    seller: SellerName
     payment_method: str | None = Field(default=None, max_length=50)
     customer_name: str | None = Field(default=None, max_length=255)
     customer_cuit: str | None = Field(default=None, max_length=32)
@@ -34,6 +38,7 @@ class SaleRead(BaseModel):
     sale_number: int
     date: datetime
     total: Decimal
+    seller: str | None = None
     payment_method: str | None = None
     customer_name: str | None = None
     customer_cuit: str | None = None
@@ -48,6 +53,7 @@ class SaleListRead(BaseModel):
     sale_number: int
     date: datetime
     total: Decimal
+    seller: str | None = None
     payment_method: str | None = None
     customer_name: str | None = None
     customer_cuit: str | None = None

@@ -16,6 +16,11 @@ from app.security.password import hash_password
 
 
 async def _category_id(session, name="Novela") -> int:
+    existing = (
+        await session.execute(select(Category).where(Category.name == name))
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing.id
     category = Category(name=name)
     session.add(category)
     await session.commit()
@@ -38,7 +43,7 @@ async def _seed_book(session, *, stock=5, price="10.00", title="Rayuela", **over
 
 
 def _sale_payload(book_id: int, quantity: int = 1, **overrides) -> dict:
-    payload = {"items": [{"book_id": book_id, "quantity": quantity}]}
+    payload = {"items": [{"book_id": book_id, "quantity": quantity}], "seller": "Cande"}
     payload.update(overrides)
     return payload
 
@@ -94,7 +99,10 @@ async def test_oversell_within_one_sale_rolls_back_all(auth_headers, session, cl
     await session.commit()
     response = await client.post(
         "/api/sales",
-        json={"items": [{"book_id": ok.id, "quantity": 2}, {"book_id": low.id, "quantity": 2}]},
+        json={
+            "items": [{"book_id": ok.id, "quantity": 2}, {"book_id": low.id, "quantity": 2}],
+            "seller": "Cande",
+        },
         headers=auth_headers,
     )
     assert response.status_code == 409
@@ -153,6 +161,77 @@ async def test_invoice_numbers_sequential(auth_headers, session, client):
 async def test_sale_detail_not_found(auth_headers, client):
     response = await client.get("/api/sales/9999", headers=auth_headers)
     assert response.status_code == 404
+
+
+async def test_create_sale_accepts_each_seller(auth_headers, session, client):
+    book_id = await _seed_book(session, stock=5)
+    for seller in ["Cande", "Julieta", "Cande y Julieta"]:
+        response = await client.post(
+            "/api/sales",
+            json=_sale_payload(book_id, 1, seller=seller),
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        assert response.json()["seller"] == seller
+
+
+async def test_create_sale_requires_seller(auth_headers, session, client):
+    book_id = await _seed_book(session)
+    response = await client.post(
+        "/api/sales",
+        json={"items": [{"book_id": book_id, "quantity": 1}]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+
+
+async def test_create_sale_rejects_invalid_seller(auth_headers, session, client):
+    book_id = await _seed_book(session)
+    response = await client.post(
+        "/api/sales",
+        json=_sale_payload(book_id, 1, seller="Eva"),
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+
+
+async def test_create_sale_rejects_blank_seller(auth_headers, session, client):
+    book_id = await _seed_book(session)
+    response = await client.post(
+        "/api/sales",
+        json=_sale_payload(book_id, 1, seller=""),
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+
+
+async def test_sale_detail_exposes_seller(auth_headers, session, client):
+    book_id = await _seed_book(session)
+    created = await client.post(
+        "/api/sales",
+        json=_sale_payload(book_id, 1, seller="Julieta"),
+        headers=auth_headers,
+    )
+    assert created.status_code == 201
+    sale_id = created.json()["id"]
+
+    detail = await client.get(f"/api/sales/{sale_id}", headers=auth_headers)
+    assert detail.status_code == 200
+    assert detail.json()["seller"] == "Julieta"
+
+
+async def test_sales_list_exposes_seller(auth_headers, session, client):
+    book_id = await _seed_book(session)
+    created = await client.post(
+        "/api/sales",
+        json=_sale_payload(book_id, 1, seller="Cande"),
+        headers=auth_headers,
+    )
+    assert created.status_code == 201
+
+    page = await client.get("/api/sales", headers=auth_headers)
+    assert page.status_code == 200
+    assert page.json()[0]["seller"] == "Cande"
 
 
 async def test_sales_list_pagination(auth_headers, session, client):

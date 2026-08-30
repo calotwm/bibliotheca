@@ -6,7 +6,7 @@ the standard API limit. Aggregations stay dialect-portable (no PostgreSQL-only
 functions) so the same queries run on SQLite (tests) and asyncpg (prod).
 """
 
-from datetime import date, datetime, time
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated
 
@@ -15,6 +15,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
+from ..core.timezone import ba_day_expr, ba_local_date, ba_today, period_filters
 from ..db import get_session
 from ..models import Book, Category, Sale, SaleItem, User
 from ..schemas.reports import (
@@ -22,8 +23,11 @@ from ..schemas.reports import (
     DaySummary,
     EditorialMetric,
     InventoryReport,
+    SalesDetailRow,
     SalesGroupSummary,
     SalesReport,
+    SellerReport,
+    SellerSummary,
     TopSellerRead,
 )
 from ..security.deps import require_user
@@ -35,21 +39,12 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 _settings = get_settings()
 
 GROUP_BY_VALUES = {"category", "editorial"}
+SHARED_SALES_SELLER = "Cande y Julieta"
 
 
 def _money(value) -> Decimal:
     """Coerce an aggregation result to a 2-decimal Decimal."""
     return Decimal(value or 0).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-
-def _period_filters(start_date: date | None, end_date: date | None) -> list:
-    """Build the ``Sale.date`` range conditions (same convention as ``sales.py``)."""
-    filters = []
-    if start_date is not None:
-        filters.append(Sale.date >= datetime.combine(start_date, time.min))
-    if end_date is not None:
-        filters.append(Sale.date <= datetime.combine(end_date, time.max))
-    return filters
 
 
 async def _grouped_summary(
@@ -118,7 +113,9 @@ async def sales_report(
             detail="group_by must be 'category', 'editorial', or omitted",
         )
 
-    filters = _period_filters(start_date, end_date)
+    filters = period_filters(
+        Sale.date, start_date, end_date, dialect_name=session.get_bind().dialect.name
+    )
 
     total_sales, total_revenue = (
         await session.execute(
@@ -128,7 +125,9 @@ async def sales_report(
         )
     ).one()
 
-    day_expr = func.date(Sale.date).label("day")
+    day_expr = ba_day_expr(
+        Sale.date, dialect_name=session.get_bind().dialect.name
+    ).label("day")
     day_rows = (
         await session.execute(
             select(
@@ -154,6 +153,149 @@ async def sales_report(
         by_day=by_day,
         group_by=group_by,
         groups=await _grouped_summary(session, group_by, filters),
+    )
+
+
+@router.get("/sales-detail", response_model=list[SalesDetailRow])
+@limiter.limit(_settings.rate_limit_api)
+async def sales_detail(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_user)],
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> list[SalesDetailRow]:
+    """Per-item sales ledger (one row per sold item) for a Buenos-Aires range.
+
+    Includes the book's CURRENT stock, category, and the seller as
+    ``seller`` (null means "Sin vendedor"). Ordered by sale datetime desc.
+    """
+    filters = period_filters(
+        Sale.date, start_date, end_date, dialect_name=session.get_bind().dialect.name
+    )
+    rows = (
+        await session.execute(
+            select(
+                Sale.id,
+                Sale.sale_number,
+                Sale.date,
+                Sale.payment_method,
+                Sale.seller,
+                Book.title,
+                Book.author,
+                Book.editorial,
+                Category.name,
+                SaleItem.unit_price,
+                SaleItem.quantity,
+                SaleItem.subtotal,
+                Book.stock,
+            )
+            .join(SaleItem, SaleItem.sale_id == Sale.id)
+            .join(Book, Book.id == SaleItem.book_id)
+            .join(Category, Category.id == Book.category_id)
+            .where(*filters)
+            .order_by(Sale.date.desc(), Sale.id.desc(), SaleItem.id.asc())
+        )
+    ).all()
+    return [
+        SalesDetailRow(
+            sale_id=row[0],
+            sale_number=row[1],
+            date=ba_local_date(row[2]),
+            payment_method=row[3],
+            seller=row[4],
+            title=row[5],
+            author=row[6],
+            editorial=row[7],
+            category=row[8],
+            unit_price=row[9],
+            quantity=row[10],
+            subtotal=row[11],
+            stock=row[12],
+        )
+        for row in rows
+    ]
+
+
+@router.get("/sellers", response_model=SellerReport)
+@limiter.limit(_settings.rate_limit_api)
+async def sellers_report(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_user)],
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> SellerReport:
+    """Per-seller monthly stats with the shared-sale 50/50 split.
+
+    Shared sales ("Cande y Julieta") count once for each seller and their
+    revenue is split in half between both. Sales without a seller are ignored.
+    Default period: the current Buenos-Aires month.
+    """
+    if start_date is None and end_date is None:
+        today = ba_today()
+        start_date = today.replace(day=1)
+        end_date = today
+
+    filters = period_filters(
+        Sale.date, start_date, end_date, dialect_name=session.get_bind().dialect.name
+    )
+    is_shared = Sale.seller == SHARED_SALES_SELLER
+    revenue_expr = func.coalesce(
+        func.sum(case((is_shared, Sale.total * Decimal("0.5")), else_=Sale.total)), 0
+    ).label("total_revenue")
+    query = (
+        select(
+            Sale.seller,
+            func.count(Sale.id),
+            revenue_expr,
+            func.coalesce(func.sum(case((is_shared, 1), else_=0)), 0),
+            func.coalesce(
+                func.sum(case((is_shared, Sale.total * Decimal("0.5")), else_=0)), 0
+            ),
+        )
+        .where(Sale.seller.is_not(None), *filters)
+        .group_by(Sale.seller)
+        .order_by(revenue_expr.desc(), Sale.seller)
+    )
+    rows = (await session.execute(query)).all()
+    # Shared sales are aggregated under "Cande y Julieta"; expand them into one
+    # row per seller so the 50/50 split keeps both names on the ledger.
+    merged: dict[str, dict] = {}
+    for seller, count, revenue, shared_count, shared_rev in rows:
+        targets = (
+            SHARED_SALES_SELLER.split(" y ") if seller == SHARED_SALES_SELLER else (seller,)
+        )
+        for target in targets:
+            entry = merged.setdefault(
+                target,
+                {
+                    "sale_count": 0,
+                    "total_revenue": Decimal("0.00"),
+                    "shared_sale_count": 0,
+                    "shared_revenue": Decimal("0.00"),
+                },
+            )
+            entry["sale_count"] += count
+            entry["total_revenue"] += revenue
+            entry["shared_sale_count"] += shared_count
+            entry["shared_revenue"] += shared_rev
+
+    sellers = [
+        SellerSummary(
+            seller=target,
+            sale_count=entry["sale_count"],
+            total_revenue=_money(entry["total_revenue"]),
+            shared_sale_count=entry["shared_sale_count"],
+            shared_revenue=_money(entry["shared_revenue"]),
+        )
+        for target, entry in merged.items()
+    ]
+    sellers.sort(key=lambda summary: (-summary.total_revenue, summary.seller))
+    return SellerReport(
+        start_date=start_date,
+        end_date=end_date,
+        sellers=sellers,
     )
 
 
