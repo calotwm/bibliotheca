@@ -3,7 +3,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as booksApi from "../api/books";
-import type { Book } from "../lib/types";
+import { createSale } from "../api/sales";
+import type { Book, Sale } from "../lib/types";
 import { Ventas } from "./Ventas";
 
 vi.mock("../api/books", () => ({
@@ -66,11 +67,15 @@ function checkoutPanel() {
 describe("Ventas (POS)", () => {
   beforeEach(() => {
     vi.mocked(booksApi.listBooks).mockResolvedValue(MOCK_BOOKS);
+    vi.mocked(createSale).mockReset();
   });
 
   it("adds a book to the cart and computes the total", async () => {
     const user = userEvent.setup();
     renderVentas();
+    // First render in a file can be slow on a cold worker (module transform +
+    // debounced search); wait for real content instead of racing the 1s default.
+    await screen.findByText("Cien años de soledad");
     const addButtons = await screen.findAllByRole("button", { name: /Agregar/ });
     await user.click(addButtons[0]);
 
@@ -119,5 +124,54 @@ describe("Ventas (POS)", () => {
     expect(sheet).toBeInTheDocument();
     expect(within(sheet).getByText("Cien años de soledad")).toBeInTheDocument();
     expect(within(sheet).getByTestId("cart-total")).toHaveTextContent("12.000");
+  });
+
+  it("requires a seller to confirm and sends it with createSale", async () => {
+    const user = userEvent.setup();
+    const SOLD: Sale = {
+      id: 1,
+      sale_number: 1,
+      date: "2026-08-29T00:30:00Z",
+      total: "12000.00",
+      seller: "Cande",
+      payment_method: null,
+      customer_name: null,
+      customer_cuit: null,
+      invoice_pdf_path: null,
+      created_by: null,
+      created_at: "2026-08-29T00:30:00Z",
+      items: [],
+    };
+    vi.mocked(createSale).mockResolvedValue(SOLD);
+    renderVentas();
+
+    const addButtons = await screen.findAllByRole("button", { name: /Agregar/ });
+    await user.click(addButtons[0]);
+
+    const confirm = screen.getByRole("button", { name: "Confirmar venta" });
+    expect(confirm).toBeDisabled();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Vendedor" }), "Cande");
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    expect(createSale).toHaveBeenCalledTimes(1);
+    expect(createSale).toHaveBeenCalledWith(
+      expect.objectContaining({ seller: "Cande" })
+    );
+    const dialog = screen.getByRole("dialog", { name: "Venta confirmada" });
+    expect(within(dialog).getByText("Cande")).toBeInTheDocument();
+  });
+
+  it("does not confirm a sale when no seller is selected", async () => {
+    const user = userEvent.setup();
+    renderVentas();
+    const addButtons = await screen.findAllByRole("button", { name: /Agregar/ });
+    await user.click(addButtons[0]);
+
+    expect(
+      within(checkoutPanel()).getByRole("button", { name: "Confirmar venta" })
+    ).toBeDisabled();
+    expect(createSale).not.toHaveBeenCalled();
   });
 });

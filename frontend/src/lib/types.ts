@@ -66,6 +66,7 @@ export interface Sale {
   sale_number: number;
   date: string;
   total: string;
+  seller: string | null;
   payment_method: string | null;
   customer_name: string | null;
   customer_cuit: string | null;
@@ -80,6 +81,7 @@ export interface SaleListItem {
   sale_number: number;
   date: string;
   total: string;
+  seller: string | null;
   payment_method: string | null;
   customer_name: string | null;
   customer_cuit: string | null;
@@ -95,6 +97,7 @@ export interface SalePayloadItem {
 
 export interface SalePayload {
   items: SalePayloadItem[];
+  seller: string;
   payment_method?: string | null;
   customer_name?: string | null;
   customer_cuit?: string | null;
@@ -182,6 +185,36 @@ export interface EditorialMetric {
   revenue: string;
 }
 
+export interface SalesDetailRow {
+  sale_id: number;
+  sale_number: number;
+  date: string;
+  title: string;
+  author: string;
+  editorial: string;
+  category: string | null;
+  unit_price: string;
+  quantity: number;
+  subtotal: string;
+  stock: number;
+  seller: string | null;
+  payment_method: string | null;
+}
+
+export interface SellerSummary {
+  seller: string;
+  sale_count: number;
+  total_revenue: string;
+  shared_sale_count: number;
+  shared_revenue: string;
+}
+
+export interface SellerReport {
+  start_date: string | null;
+  end_date: string | null;
+  sellers: SellerSummary[];
+}
+
 export interface LowStockItem {
   book_id: number;
   title: string;
@@ -196,6 +229,7 @@ export interface RecentSale {
   sale_number: number;
   date: string;
   total: string;
+  seller: string | null;
   payment_method: string | null;
   customer_name: string | null;
   created_by: number | null;

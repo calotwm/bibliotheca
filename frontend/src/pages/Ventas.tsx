@@ -18,6 +18,8 @@ import type { Book, Sale } from "../lib/types";
 
 const PAGE_SIZE = 50;
 
+const SELLERS = ["Cande", "Julieta", "Cande y Julieta"];
+
 interface CartLine {
   book: Book;
   qty: number;
@@ -45,6 +47,7 @@ export function Ventas() {
   const debouncedSearch = useDebouncedValue(search);
   const [cart, setCart] = useState<Record<number, number>>({});
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [seller, setSeller] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerCuit, setCustomerCuit] = useState("");
   const [result, setResult] = useState<Sale | null>(null);
@@ -124,6 +127,7 @@ export function Ventas() {
     mutationFn: () =>
       createSale({
         items: lines.map((line) => ({ book_id: line.book.id, quantity: line.qty })),
+        seller,
         payment_method: paymentMethod.trim() || null,
         customer_name: customerName.trim() || null,
         customer_cuit: customerCuit.trim() || null,
@@ -133,6 +137,7 @@ export function Ventas() {
       setCart({});
       setCartOpen(false);
       setSearch("");
+      setSeller("");
       setPaymentMethod("");
       setCustomerName("");
       setCustomerCuit("");
@@ -153,6 +158,10 @@ export function Ventas() {
     setError(null);
     if (lines.length === 0) {
       setError("El carrito está vacío.");
+      return;
+    }
+    if (!seller) {
+      setError("Seleccione el vendedor o la vendedora para confirmar la venta.");
       return;
     }
     saleMutation.mutate();
@@ -220,6 +229,22 @@ export function Ventas() {
           </div>
 
           <div className="mt-3 space-y-2">
+            <select
+              value={seller}
+              onChange={(event) => setSeller(event.target.value)}
+              className={inputClass}
+              required
+              aria-label="Vendedor"
+            >
+              <option value="" disabled>
+                Seleccionar vendedor/a…
+              </option>
+              {SELLERS.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
             <input
               type="text"
               value={paymentMethod}
@@ -252,7 +277,7 @@ export function Ventas() {
           <button
             type="button"
             onClick={confirmSale}
-            disabled={saleMutation.isPending || lines.length === 0}
+            disabled={saleMutation.isPending || lines.length === 0 || !seller}
             className="mt-3 min-h-10 w-full rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
           >
             {saleMutation.isPending ? "Confirmando…" : "Confirmar venta"}
@@ -389,7 +414,13 @@ export function Ventas() {
             </div>
             <p className="mt-3 text-sm">
               Venta <span className="font-semibold">#{result.sale_number}</span> registrada por{" "}
-              <span className="font-semibold">{formatARS(result.total)}</span>.
+              <span className="font-semibold">{formatARS(result.total)}</span>
+              {result.seller ? (
+                <>
+                  , vendida por <span className="font-semibold">{result.seller}</span>
+                </>
+              ) : null}
+              .
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
