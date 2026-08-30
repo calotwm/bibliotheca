@@ -18,7 +18,7 @@ import type { Book, Sale } from "../lib/types";
 
 const PAGE_SIZE = 50;
 
-const SELLERS = ["Cande", "Julieta", "Cande y Julieta"];
+export const SELLERS = ["Cande", "Julieta", "Cande y Julieta"];
 
 interface CartLine {
   book: Book;

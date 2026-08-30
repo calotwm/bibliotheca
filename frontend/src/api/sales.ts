@@ -1,4 +1,4 @@
-import type { Sale, SaleListItem, SalePayload } from "../lib/types";
+import type { Sale, SaleListItem, SalePayload, SaleUpdatePayload } from "../lib/types";
 import { apiFetch } from "./client";
 
 export interface SaleFilters {
@@ -10,6 +10,10 @@ export interface SaleFilters {
 
 export function createSale(payload: SalePayload): Promise<Sale> {
   return apiFetch<Sale>("/sales", { method: "POST", body: payload });
+}
+
+export function updateSale(saleId: number, payload: SaleUpdatePayload): Promise<Sale> {
+  return apiFetch<Sale>(`/sales/${saleId}`, { method: "PATCH", body: payload });
 }
 
 export function listSales(filters: SaleFilters = {}): Promise<SaleListItem[]> {

@@ -103,6 +103,13 @@ export interface SalePayload {
   customer_cuit?: string | null;
 }
 
+export interface SaleUpdatePayload {
+  seller?: string | null;
+  payment_method?: string | null;
+  customer_name?: string | null;
+  customer_cuit?: string | null;
+}
+
 export interface Supplier {
   id: number;
   name: string;

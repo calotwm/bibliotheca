@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { ApiError } from "../api/client";
 import * as reportsApi from "../api/reports";
+import { updateSale } from "../api/sales";
 import { DataTable } from "../components/DataTable";
 import { formatARS, formatDate } from "../lib/format";
 import type { Column } from "../components/DataTable";
@@ -10,9 +12,11 @@ import type {
   EditorialMetric,
   SalesDetailRow,
   SalesGroupSummary,
+  SaleUpdatePayload,
   SellerSummary,
   TopSeller,
 } from "../lib/types";
+import { SELLERS } from "./Ventas";
 
 const dayColumns: Column<DaySummary>[] = [
   { key: "date", header: "Fecha", render: (row) => formatDate(row.date) },
@@ -49,20 +53,37 @@ const editorialColumns: Column<EditorialMetric>[] = [
   { key: "revenue", header: "Ingresos", render: (row) => <span className="font-semibold">{formatARS(row.revenue)}</span> },
 ];
 
-const salesDetailColumns: Column<SalesDetailRow>[] = [
-  { key: "sale_number", header: "N°", render: (row) => row.sale_number },
-  { key: "date", header: "Fecha", render: (row) => formatDate(row.date) },
-  { key: "title", header: "Título", render: (row) => <span className="font-medium">{row.title}</span> },
-  { key: "author", header: "Autor", render: (row) => row.author },
-  { key: "editorial", header: "Editorial", render: (row) => row.editorial },
-  { key: "category", header: "Categoría", render: (row) => row.category ?? "—" },
-  { key: "unit_price", header: "Precio", render: (row) => formatARS(row.unit_price) },
-  { key: "quantity", header: "Cantidad", render: (row) => row.quantity },
-  { key: "subtotal", header: "Subtotal", render: (row) => formatARS(row.subtotal) },
-  { key: "stock", header: "Stock", render: (row) => row.stock },
-  { key: "seller", header: "Observaciones", render: (row) => row.seller ?? "Sin vendedor" },
-  { key: "payment_method", header: "Método de pago", render: (row) => row.payment_method ?? "—" },
-];
+function salesDetailColumns(
+  onEdit: (row: SalesDetailRow) => void
+): Column<SalesDetailRow>[] {
+  return [
+    { key: "sale_number", header: "N°", render: (row) => row.sale_number },
+    { key: "date", header: "Fecha", render: (row) => formatDate(row.date) },
+    { key: "title", header: "Título", render: (row) => <span className="font-medium">{row.title}</span> },
+    { key: "author", header: "Autor", render: (row) => row.author },
+    { key: "editorial", header: "Editorial", render: (row) => row.editorial },
+    { key: "category", header: "Categoría", render: (row) => row.category ?? "—" },
+    { key: "unit_price", header: "Precio", render: (row) => formatARS(row.unit_price) },
+    { key: "quantity", header: "Cantidad", render: (row) => row.quantity },
+    { key: "subtotal", header: "Subtotal", render: (row) => formatARS(row.subtotal) },
+    { key: "stock", header: "Stock", render: (row) => row.stock },
+    { key: "seller", header: "Observaciones", render: (row) => row.seller ?? "Sin vendedor" },
+    { key: "payment_method", header: "Método de pago", render: (row) => row.payment_method ?? "—" },
+    {
+      key: "actions",
+      header: "Acciones",
+      render: (row) => (
+        <button
+          type="button"
+          onClick={() => onEdit(row)}
+          className="rounded-sm border border-navy/20 px-3 py-1 text-sm font-medium text-navy hover:bg-navy/5"
+        >
+          Editar venta
+        </button>
+      ),
+    },
+  ];
+}
 
 const sellerColumns: Column<SellerSummary>[] = [
   { key: "seller", header: "Vendedor", render: (row) => <span className="font-medium">{row.seller}</span> },
@@ -82,6 +103,7 @@ function todayISO(): string {
 }
 
 export function Reportes() {
+  const queryClient = useQueryClient();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [groupBy, setGroupBy] = useState("");
@@ -89,6 +111,72 @@ export function Reportes() {
   const [detailEnd, setDetailEnd] = useState("");
   const [sellerStart, setSellerStart] = useState(firstOfMonth);
   const [sellerEnd, setSellerEnd] = useState(todayISO);
+  const [editingSale, setEditingSale] = useState<SalesDetailRow | null>(null);
+  const [editFields, setEditFields] = useState({
+    seller: "",
+    payment_method: "",
+    customer_name: "",
+    customer_cuit: "",
+  });
+  const [editError, setEditError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const editMutation = useMutation({
+    mutationFn: ({
+      saleId,
+      payload,
+    }: {
+      saleId: number;
+      payload: SaleUpdatePayload;
+    }) => updateSale(saleId, payload),
+    onSuccess: () => {
+      setEditingSale(null);
+      setSaved(true);
+      void salesDetailQuery.refetch();
+      void sellersQuery.refetch();
+      void queryClient.invalidateQueries({ queryKey: ["reports-sales"] });
+    },
+    onError: (err: unknown) => {
+      setEditError(
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : "No se pudieron guardar los cambios."
+      );
+    },
+  });
+
+  function openEditModal(row: SalesDetailRow) {
+    setEditingSale(row);
+    setEditFields({
+      seller: row.seller ?? "",
+      payment_method: row.payment_method ?? "",
+      customer_name: "",
+      customer_cuit: "",
+    });
+    setEditError(null);
+    setSaved(false);
+  }
+
+  function buildEditPayload(): SaleUpdatePayload {
+    // Seller and payment are always sent (pre-filled from the detail row);
+    // customer fields are only sent when typed, so untouched customer data is
+    // never accidentally cleared (the detail report does not expose it).
+    const payload: SaleUpdatePayload = {
+      seller: editFields.seller.trim() || null,
+      payment_method: editFields.payment_method.trim() || null,
+    };
+    const customerName = editFields.customer_name.trim();
+    if (customerName) payload.customer_name = customerName;
+    const customerCuit = editFields.customer_cuit.trim();
+    if (customerCuit) payload.customer_cuit = customerCuit;
+    return payload;
+  }
+
+  function handleEditSave() {
+    if (!editingSale) return;
+    setEditError(null);
+    editMutation.mutate({ saleId: editingSale.sale_id, payload: buildEditPayload() });
+  }
 
   const salesQuery = useQuery({
     queryKey: ["reports-sales", startDate, endDate, groupBy],
@@ -246,10 +334,13 @@ export function Reportes() {
               : "No se pudo cargar el reporte."}
           </p>
         )}
+        {saved && (
+          <p className="mt-3 text-sm text-green-700">Se guardaron los cambios</p>
+        )}
         {salesDetailQuery.data && (
           <div className="mt-3">
             <DataTable
-              columns={salesDetailColumns}
+              columns={salesDetailColumns(openEditModal)}
               rows={salesDetailQuery.data}
               emptyMessage="Sin ventas en el período seleccionado."
             />
@@ -387,6 +478,102 @@ export function Reportes() {
           />
         )}
       </section>
+
+      {editingSale && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Editar venta #${editingSale.sale_number}`}
+        >
+          <div className="w-full max-w-md rounded-sm border border-navy/10 bg-cream p-6 shadow-xl">
+            <h2 className="text-lg font-bold">Editar venta #{editingSale.sale_number}</h2>
+            <p className="mt-1 text-xs text-ink-soft">
+              Se editan solo vendedor, pago y datos del cliente. Ítems, total y
+              fecha no se modifican.
+            </p>
+            <div className="mt-4 space-y-4">
+              <label className="block">
+                <span className="text-xs text-ink-soft">Vendedor</span>
+                <select
+                  value={editFields.seller}
+                  onChange={(event) =>
+                    setEditFields({ ...editFields, seller: event.target.value })
+                  }
+                  className={`${inputClass} mt-1`}
+                  aria-label="Vendedor"
+                >
+                  <option value="">Sin vendedor</option>
+                  {SELLERS.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs text-ink-soft">Método de pago</span>
+                <input
+                  type="text"
+                  value={editFields.payment_method}
+                  onChange={(event) =>
+                    setEditFields({ ...editFields, payment_method: event.target.value })
+                  }
+                  placeholder="Método de pago (opcional)"
+                  className={`${inputClass} mt-1`}
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs text-ink-soft">Cliente</span>
+                <input
+                  type="text"
+                  value={editFields.customer_name}
+                  onChange={(event) =>
+                    setEditFields({ ...editFields, customer_name: event.target.value })
+                  }
+                  placeholder="Cliente (opcional)"
+                  className={`${inputClass} mt-1`}
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs text-ink-soft">CUIT</span>
+                <input
+                  type="text"
+                  value={editFields.customer_cuit}
+                  onChange={(event) =>
+                    setEditFields({ ...editFields, customer_cuit: event.target.value })
+                  }
+                  placeholder="CUIT (opcional)"
+                  className={`${inputClass} mt-1`}
+                />
+              </label>
+
+              {editError && (
+                <p className="text-sm text-red-700" role="alert">
+                  {editError}
+                </p>
+              )}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingSale(null)}
+                className="rounded-sm border border-navy/20 px-4 py-2 text-sm font-medium text-navy hover:bg-navy/5"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleEditSave}
+                disabled={editMutation.isPending}
+                className="rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
+              >
+                {editMutation.isPending ? "Guardando…" : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
