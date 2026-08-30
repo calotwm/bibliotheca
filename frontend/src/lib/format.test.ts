@@ -34,6 +34,13 @@ describe("formatDate", () => {
     expect(formatDate("2026-08-16T10:00:00")).toContain("2026");
   });
 
+  it("does not timezone-shift date-only values (backend day strings)", () => {
+    // new Date("2026-08-29") parses as UTC midnight and would render as
+    // 28/08/2026 in Buenos Aires; date-only values must keep their day.
+    expect(formatDate("2026-08-29")).toBe("29/08/2026");
+    expect(formatDate("2026-08-16")).toBe("16/08/2026");
+  });
+
   it("returns a placeholder for missing values", () => {
     expect(formatDate(null)).toBe("—");
   });

@@ -15,8 +15,19 @@ export function formatARS(value: string | number | null | undefined): string {
   return arsFormatter.format(parsePrice(value));
 }
 
+// Matches backend date-only values (YYYY-MM-DD). Date-only strings parse as
+// UTC midnight in JS, so passing them through `new Date()` shifts the day in
+// timezones behind UTC (e.g. Buenos Aires shows the previous day).
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatDateOnly(value: string): string {
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
+  if (DATE_ONLY_RE.test(value)) return formatDateOnly(value);
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("es-AR", {
@@ -28,6 +39,7 @@ export function formatDate(value: string | null | undefined): string {
 
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return "—";
+  if (DATE_ONLY_RE.test(value)) return formatDateOnly(value);
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
