@@ -13,12 +13,16 @@ import {
   TrashIcon,
   XIcon,
 } from "../components/icons";
-import { formatARS, parsePrice } from "../lib/format";
+import { formatARS, formatSeller, parsePrice } from "../lib/format";
 import type { Book, Sale } from "../lib/types";
 
 const PAGE_SIZE = 50;
 
-export const SELLERS = ["Cande", "Julieta", "Cande y Julieta"];
+export const SELLERS: { value: string; label: string }[] = [
+  { value: "Cande", label: "Cande" },
+  { value: "Julieta", label: "Juli" },
+  { value: "Cande y Julieta", label: "Cande y Juli" },
+];
 
 interface CartLine {
   book: Book;
@@ -239,9 +243,9 @@ export function Ventas() {
               <option value="" disabled>
                 Seleccionar vendedor/a…
               </option>
-              {SELLERS.map((name) => (
-                <option key={name} value={name}>
-                  {name}
+              {SELLERS.map((sellerOption) => (
+                <option key={sellerOption.value} value={sellerOption.value}>
+                  {sellerOption.label}
                 </option>
               ))}
             </select>
@@ -417,7 +421,8 @@ export function Ventas() {
               <span className="font-semibold">{formatARS(result.total)}</span>
               {result.seller ? (
                 <>
-                  , vendida por <span className="font-semibold">{result.seller}</span>
+                  , vendida por{" "}
+                  <span className="font-semibold">{formatSeller(result.seller)}</span>
                 </>
               ) : null}
               .

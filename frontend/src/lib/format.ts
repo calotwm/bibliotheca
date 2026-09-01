@@ -44,3 +44,15 @@ export function formatDateTime(value: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
 }
+
+// Display labels for seller names. Backend values stay canonical ("Julieta")
+// so historical sales keep grouping correctly; only what users SEE changes.
+const SELLER_LABELS: Record<string, string> = {
+  Julieta: "Juli",
+  "Cande y Julieta": "Cande y Juli",
+};
+
+export function formatSeller(seller: string | null | undefined): string {
+  if (!seller) return "Sin vendedor";
+  return SELLER_LABELS[seller] ?? seller;
+}

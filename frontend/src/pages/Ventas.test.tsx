@@ -163,6 +163,19 @@ describe("Ventas (POS)", () => {
     expect(within(dialog).getByText("Cande")).toBeInTheDocument();
   });
 
+  it("shows Juli and Cande y Juli as seller labels while keeping backend values", async () => {
+    renderVentas();
+    const combobox = screen.getByRole("combobox", { name: "Vendedor" });
+    const juliOption = within(combobox).getByRole("option", {
+      name: "Juli",
+    }) as HTMLOptionElement;
+    expect(juliOption.value).toBe("Julieta");
+    const sharedOption = within(combobox).getByRole("option", {
+      name: "Cande y Juli",
+    }) as HTMLOptionElement;
+    expect(sharedOption.value).toBe("Cande y Julieta");
+  });
+
   it("does not confirm a sale when no seller is selected", async () => {
     const user = userEvent.setup();
     renderVentas();

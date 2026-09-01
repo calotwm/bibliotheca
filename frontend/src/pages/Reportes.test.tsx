@@ -114,6 +114,12 @@ describe("Reportes — Editar venta", () => {
     expect(
       within(dialog).getByRole("combobox", { name: "Vendedor" })
     ).toHaveValue("Cande");
+    expect(
+      within(dialog).getByRole("option", { name: "Juli" })
+    ).toHaveValue("Julieta");
+    expect(
+      within(dialog).getByRole("option", { name: "Cande y Juli" })
+    ).toHaveValue("Cande y Julieta");
 
     await user.selectOptions(
       within(dialog).getByRole("combobox", { name: "Vendedor" }),

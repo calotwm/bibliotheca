@@ -4,7 +4,7 @@ import { ApiError } from "../api/client";
 import * as reportsApi from "../api/reports";
 import { updateSale } from "../api/sales";
 import { DataTable } from "../components/DataTable";
-import { formatARS, formatDate } from "../lib/format";
+import { formatARS, formatDate, formatSeller } from "../lib/format";
 import type { Column } from "../components/DataTable";
 import type {
   CategoryMetric,
@@ -67,7 +67,7 @@ function salesDetailColumns(
     { key: "quantity", header: "Cantidad", render: (row) => row.quantity },
     { key: "subtotal", header: "Subtotal", render: (row) => formatARS(row.subtotal) },
     { key: "stock", header: "Stock", render: (row) => row.stock },
-    { key: "seller", header: "Observaciones", render: (row) => row.seller ?? "Sin vendedor" },
+    { key: "seller", header: "Observaciones", render: (row) => formatSeller(row.seller) },
     { key: "payment_method", header: "Método de pago", render: (row) => row.payment_method ?? "—" },
     {
       key: "actions",
@@ -86,7 +86,7 @@ function salesDetailColumns(
 }
 
 const sellerColumns: Column<SellerSummary>[] = [
-  { key: "seller", header: "Vendedor", render: (row) => <span className="font-medium">{row.seller}</span> },
+  { key: "seller", header: "Vendedor", render: (row) => <span className="font-medium">{formatSeller(row.seller)}</span> },
   { key: "sale_count", header: "Ventas", render: (row) => row.sale_count },
   { key: "shared_sale_count", header: "Compartidas", render: (row) => row.shared_sale_count },
   { key: "total_revenue", header: "Total vendido", render: (row) => <span className="font-semibold">{formatARS(row.total_revenue)}</span> },
@@ -389,7 +389,7 @@ export function Reportes() {
           </label>
         </div>
         <p className="mb-2 mt-2 text-xs text-ink-soft">
-          Las ventas compartidas ("Cande y Julieta") se dividen 50/50 entre ambas
+          Las ventas compartidas ("Cande y Juli") se dividen 50/50 entre ambas
           vendedoras. Las ventas sin vendedor no se contabilizan.
         </p>
 
@@ -504,9 +504,9 @@ export function Reportes() {
                   aria-label="Vendedor"
                 >
                   <option value="">Sin vendedor</option>
-                  {SELLERS.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
+                  {SELLERS.map((sellerOption) => (
+                    <option key={sellerOption.value} value={sellerOption.value}>
+                      {sellerOption.label}
                     </option>
                   ))}
                 </select>
