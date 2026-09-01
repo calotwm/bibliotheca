@@ -53,6 +53,7 @@ def _canonical_sheets(sheets: Iterable[ImportSheet]) -> str:
                     "genre": row.genre,
                     "price": str(row.price),
                     "stock": row.stock,
+                    "observaciones": row.observaciones,
                 }
                 for row in sheet.rows
             ],
@@ -108,6 +109,7 @@ async def _classify_rows(
                     genre=row.genre,
                     price=row.price,
                     stock=row.stock,
+                    observaciones=row.observaciones,
                     is_new=False,
                 )
             )
@@ -130,6 +132,7 @@ async def _classify_rows(
                 genre=row.genre,
                 price=row.price,
                 stock=row.stock,
+                observaciones=row.observaciones,
                 is_new=is_new,
             )
         )
@@ -246,6 +249,7 @@ async def apply_import(
                     stock=row.stock,
                     genre=row.genre,
                     source_sheet=sheet.sheet,
+                    observaciones=row.observaciones or "Juli",
                 )
                 if created:
                     inserts += 1

@@ -44,6 +44,7 @@ async def create_sale(
     payment_method: str | None = None,
     customer_name: str | None = None,
     customer_cuit: str | None = None,
+    observaciones: str | None = None,
 ) -> Sale:
     """Create a sale with items inside ONE transaction (caller commits).
 
@@ -59,6 +60,7 @@ async def create_sale(
         payment_method=payment_method,
         customer_name=customer_name,
         customer_cuit=customer_cuit,
+        observaciones=observaciones,
         created_by=cashier.id,
     )
     session.add(sale)

@@ -52,6 +52,7 @@ def _sale_to_read(sale: Sale) -> SaleRead:
         customer_name=sale.customer_name,
         customer_cuit=sale.customer_cuit,
         invoice_pdf_path=sale.invoice_pdf_path,
+        observaciones=sale.observaciones,
         created_by=sale.created_by,
         created_at=sale.created_at,
         items=[_item_to_read(item) for item in sale.items],
@@ -75,6 +76,7 @@ async def create_sale_endpoint(
             payment_method=body.payment_method,
             customer_name=body.customer_name,
             customer_cuit=body.customer_cuit,
+            observaciones=body.observaciones,
         )
     except OversellError as exc:
         await session.rollback()
@@ -142,6 +144,7 @@ async def list_sales(
             payment_method=sale.payment_method,
             customer_name=sale.customer_name,
             customer_cuit=sale.customer_cuit,
+            observaciones=sale.observaciones,
             created_by=sale.created_by,
             created_at=sale.created_at,
             item_count=count if count is not None else 0,

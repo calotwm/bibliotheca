@@ -31,6 +31,7 @@ const rowColumns: Column<ImportRow>[] = [
   { key: "editorial", header: "Editorial", render: (row) => row.editorial },
   { key: "price", header: "Precio", render: (row) => formatARS(row.price) },
   { key: "stock", header: "Stock", render: (row) => row.stock },
+  { key: "observaciones", header: "Observaciones", render: (row) => row.observaciones ?? "—" },
   {
     key: "is_new",
     header: "Tipo",

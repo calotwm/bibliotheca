@@ -23,6 +23,7 @@ class Sale(Base):
     customer_cuit: Mapped[str | None] = mapped_column(String(32))
     invoice_pdf_path: Mapped[str | None] = mapped_column(String(512))
     seller: Mapped[str | None] = mapped_column(String(40))
+    observaciones: Mapped[str | None] = mapped_column(String(200))
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

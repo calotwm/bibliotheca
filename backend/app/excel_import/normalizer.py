@@ -149,3 +149,16 @@ def category_for_genre(genre: str | None, available: Iterable[str]) -> str | Non
 def has_genre_column(cells: list[str | None]) -> bool:
     """True when any header cell normalizes to ``genero`` (genre layout)."""
     return any(normalize_header(cell) == "genero" for cell in cells if cell)
+
+
+def observaciones_column_index(cells: list[str | None]) -> int | None:
+    """Index of the first header cell matching ``/observ/i``, else ``None``.
+
+    The catalog (and sales) sheets expose an "Observaciones"/"OBSERVACIONES"
+    column whose position varies by layout; matching is accent/case-insensitive
+    so the column is found wherever it lands.
+    """
+    for index, cell in enumerate(cells):
+        if cell is not None and "observ" in normalize_header(cell):
+            return index
+    return None

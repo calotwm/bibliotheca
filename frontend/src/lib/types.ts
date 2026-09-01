@@ -37,6 +37,7 @@ export interface Book {
   isbn: string | null;
   genre: string | null;
   source_sheet: string | null;
+  observaciones: string | null;
   is_active: boolean;
   stock_status: string;
 }
@@ -50,6 +51,7 @@ export interface BookPayload {
   stock: number;
   isbn?: string | null;
   genre?: string | null;
+  observaciones?: string | null;
 }
 
 export interface SaleItem {
@@ -71,6 +73,7 @@ export interface Sale {
   customer_name: string | null;
   customer_cuit: string | null;
   invoice_pdf_path: string | null;
+  observaciones: string | null;
   created_by: number | null;
   created_at: string;
   items: SaleItem[];
@@ -85,6 +88,7 @@ export interface SaleListItem {
   payment_method: string | null;
   customer_name: string | null;
   customer_cuit: string | null;
+  observaciones: string | null;
   created_by: number | null;
   created_at: string;
   item_count: number;
@@ -101,6 +105,7 @@ export interface SalePayload {
   payment_method?: string | null;
   customer_name?: string | null;
   customer_cuit?: string | null;
+  observaciones?: string | null;
 }
 
 export interface SaleUpdatePayload {
@@ -206,6 +211,7 @@ export interface SalesDetailRow {
   stock: number;
   seller: string | null;
   payment_method: string | null;
+  observaciones: string | null;
 }
 
 export interface SellerSummary {
@@ -261,6 +267,7 @@ export interface ImportRow {
   genre: string | null;
   price: string;
   stock: number;
+  observaciones: string | null;
   is_new: boolean;
 }
 

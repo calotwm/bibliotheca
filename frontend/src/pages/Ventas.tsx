@@ -427,6 +427,12 @@ export function Ventas() {
               ) : null}
               .
             </p>
+            {result.observaciones ? (
+              <p className="mt-2 text-sm">
+                Observaciones:{" "}
+                <span className="font-semibold">{result.observaciones}</span>
+              </p>
+            ) : null}
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"

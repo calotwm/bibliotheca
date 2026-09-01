@@ -52,6 +52,7 @@ def _to_read(book: Book) -> BookRead:
         isbn=book.isbn,
         genre=book.genre,
         source_sheet=book.source_sheet,
+        observaciones=book.observaciones,
         is_active=book.is_active,
         stock_status=compute_stock_status(book.stock, _settings.low_stock_threshold),
     )
@@ -191,6 +192,7 @@ async def create_book(
         stock=body.stock,
         isbn=body.isbn,
         genre=body.genre,
+        observaciones=body.observaciones,
     )
     await log_audit(
         session,

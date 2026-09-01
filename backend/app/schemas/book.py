@@ -16,6 +16,7 @@ class BookCreate(BaseModel):
     stock: int = Field(ge=0, default=0)
     isbn: str | None = Field(default=None, max_length=32)
     genre: str | None = Field(default=None, max_length=120)
+    observaciones: str | None = Field(default=None, max_length=200)
 
 
 class BookUpdate(BaseModel):
@@ -29,6 +30,7 @@ class BookUpdate(BaseModel):
     stock: int | None = Field(default=None, ge=0)
     isbn: str | None = Field(default=None, max_length=32)
     genre: str | None = Field(default=None, max_length=120)
+    observaciones: str | None = Field(default=None, max_length=200)
 
 
 class BookRead(BaseModel):
@@ -43,5 +45,6 @@ class BookRead(BaseModel):
     isbn: str | None = None
     genre: str | None = None
     source_sheet: str | None = None
+    observaciones: str | None = None
     is_active: bool
     stock_status: str

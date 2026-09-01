@@ -22,6 +22,7 @@ class SaleCreate(BaseModel):
     payment_method: str | None = Field(default=None, max_length=50)
     customer_name: str | None = Field(default=None, max_length=255)
     customer_cuit: str | None = Field(default=None, max_length=32)
+    observaciones: str | None = Field(default=None, max_length=200)
 
 
 class SaleItemRead(BaseModel):
@@ -71,6 +72,7 @@ class SaleRead(BaseModel):
     customer_name: str | None = None
     customer_cuit: str | None = None
     invoice_pdf_path: str | None = None
+    observaciones: str | None = None
     created_by: int | None = None
     created_at: datetime
     items: list[SaleItemRead] = []
@@ -85,6 +87,7 @@ class SaleListRead(BaseModel):
     payment_method: str | None = None
     customer_name: str | None = None
     customer_cuit: str | None = None
+    observaciones: str | None = None
     created_by: int | None = None
     created_at: datetime
     item_count: int = 0

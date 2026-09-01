@@ -21,6 +21,7 @@ class ImportRow(BaseModel):
     genre: str | None = Field(default=None, max_length=120)
     price: Decimal = Field(ge=0)
     stock: int = Field(ge=0)
+    observaciones: str | None = Field(default=None, max_length=200)
     is_new: bool = True
 
 

@@ -37,6 +37,7 @@ from .normalizer import (
     has_genre_column,
     is_header_row,
     normalize_sheet_name,
+    observaciones_column_index,
 )
 
 HEADER_COLUMNS = ["title", "author", "editorial", "price", "stock"]
@@ -81,6 +82,7 @@ class ParsedRow:
     genre: str | None
     price: Decimal | None
     stock: int | None
+    observaciones: str | None
     row_number: int
     error: str | None = None
     skip_reason: str | None = None
@@ -184,6 +186,7 @@ def _build_row(
     *,
     genre_driven: bool = False,
     available_categories: Iterable[str] = (),
+    obs_index: int | None = None,
 ) -> ParsedRow:
     values = dict(zip(columns, cells))
     title_raw = values.get("title")
@@ -192,6 +195,7 @@ def _build_row(
     genre_raw = values.get("genre")
     price_raw = values.get("price")
     stock_raw = values.get("stock")
+    observaciones_raw = cells[obs_index] if obs_index is not None and obs_index < len(cells) else None
 
     # Clean and parse every field first: skip and error rows both carry the
     # parsed values so summary accounting stays accurate.
@@ -199,6 +203,7 @@ def _build_row(
     author = _clean(author_raw)
     editorial = _clean(editorial_raw)
     genre = _clean(genre_raw)
+    observaciones = _clean(observaciones_raw)
     price = _parse_price(price_raw) if price_raw is not None else None
     stock = _parse_stock(stock_raw) if stock_raw is not None else None
 
@@ -220,6 +225,7 @@ def _build_row(
             genre=genre,
             price=price,
             stock=stock,
+            observaciones=observaciones,
             row_number=row_number,
             skip_reason="Unexpected date value in title",
         )
@@ -240,6 +246,7 @@ def _build_row(
             genre=genre,
             price=price,
             stock=stock,
+            observaciones=observaciones,
             row_number=row_number,
             skip_reason="footer/summary row",
         )
@@ -281,6 +288,7 @@ def _build_row(
         genre=genre,
         price=price,
         stock=stock,
+        observaciones=observaciones,
         row_number=row_number,
         error="; ".join(errors) if errors else None,
     )
@@ -297,6 +305,7 @@ def _parse_sheet(
     first_cleaned = [_clean(cell) for cell in first[:MAX_COLUMNS]]
     has_header = is_header_row(first_cleaned)
     genre_driven = has_header and has_genre_column(first_cleaned)
+    obs_index = observaciones_column_index(first_cleaned) if has_header else None
     data_iterator = iterator if has_header else itertools.chain([first], iterator)
 
     rows: list[ParsedRow] = []
@@ -321,6 +330,7 @@ def _parse_sheet(
                 row_number,
                 genre_driven=genre_driven,
                 available_categories=available_categories,
+                obs_index=obs_index,
             )
         )
         row_number += 1

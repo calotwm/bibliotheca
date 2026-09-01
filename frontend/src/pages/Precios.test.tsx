@@ -48,6 +48,7 @@ const sampleBook = {
   isbn: null,
   genre: null,
   source_sheet: null,
+  observaciones: null,
   is_active: true,
   stock_status: "In Stock",
 };

@@ -102,6 +102,7 @@ class SalesDetailRow(BaseModel):
     stock: int
     seller: str | None = None
     payment_method: str | None = None
+    observaciones: str | None = None
 
 
 class SellerSummary(BaseModel):

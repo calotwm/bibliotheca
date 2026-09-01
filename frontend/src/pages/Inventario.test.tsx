@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,6 +43,7 @@ const sampleBook = {
   isbn: null,
   genre: null,
   source_sheet: null,
+  observaciones: null,
   is_active: true,
   stock_status: "In Stock",
 };
@@ -115,6 +116,7 @@ describe("Inventario", () => {
         isbn: null,
         genre: null,
         source_sheet: null,
+        observaciones: null,
         is_active: true,
         stock_status: "Out",
       },
@@ -130,6 +132,7 @@ describe("Inventario", () => {
         isbn: null,
         genre: null,
         source_sheet: null,
+        observaciones: null,
         is_active: true,
         stock_status: "In Stock",
       },
@@ -194,6 +197,43 @@ describe("Inventario", () => {
     await waitFor(() => {
       expect(booksApi.listBooks).toHaveBeenCalledWith(
         expect.objectContaining({ sort_by: "price", sort_dir: "asc" })
+      );
+    });
+  });
+
+  it("shows an Observaciones column with the book value", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([
+      { ...sampleBook, observaciones: "Juli y Cande" },
+    ]);
+    renderPage();
+
+    expect(await screen.findByText("Juli y Cande")).toBeInTheDocument();
+    expect(screen.getByText("Observaciones")).toBeInTheDocument();
+  });
+
+  it("includes observaciones in the book create payload", async () => {
+    const user = userEvent.setup();
+    vi.mocked(categoriesApi.listCategories).mockResolvedValue([
+      { id: 1, name: "Novela" },
+    ]);
+    vi.mocked(booksApi.createBook).mockResolvedValue(sampleBook);
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Nuevo libro" }));
+    const dialog = screen.getByRole("dialog", { name: "Nuevo libro" });
+
+    await user.type(within(dialog).getByLabelText(/Título/), "Rayuela");
+    await user.type(within(dialog).getByLabelText(/Autor/), "Julio Cortázar");
+    await user.type(within(dialog).getByLabelText(/Editorial/), "Sudamericana");
+    await user.type(within(dialog).getByLabelText(/Precio/), "12.50");
+    await user.type(within(dialog).getByLabelText(/Stock/), "3");
+    await user.type(within(dialog).getByLabelText("Observaciones"), "Juli y Cande");
+
+    await user.click(within(dialog).getByRole("button", { name: "Crear libro" }));
+
+    await waitFor(() => {
+      expect(booksApi.createBook).toHaveBeenCalledWith(
+        expect.objectContaining({ observaciones: "Juli y Cande" })
       );
     });
   });

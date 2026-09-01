@@ -35,6 +35,7 @@ const DETAIL_ROW: SalesDetailRow = {
   stock: 4,
   seller: "Cande",
   payment_method: null,
+  observaciones: null,
 };
 
 const UPDATED_SALE: Sale = {
@@ -47,6 +48,7 @@ const UPDATED_SALE: Sale = {
   customer_name: null,
   customer_cuit: null,
   invoice_pdf_path: null,
+  observaciones: null,
   created_by: 1,
   created_at: "2026-08-29T00:30:00Z",
   items: [],
@@ -186,5 +188,17 @@ describe("Reportes — Editar venta", () => {
       screen.queryByRole("dialog", { name: "Editar venta #1" })
     ).not.toBeInTheDocument();
     expect(updateSale).not.toHaveBeenCalled();
+  });
+
+  it("shows Vendido por and Observaciones columns in the sales detail table", async () => {
+    vi.mocked(reportsApi.getSalesDetail).mockResolvedValue([
+      { ...DETAIL_ROW, observaciones: "Juli y Cande" },
+    ]);
+    renderReportes();
+
+    expect(await screen.findByText("Rayuela")).toBeInTheDocument();
+    expect(screen.getByText("Vendido por")).toBeInTheDocument();
+    expect(screen.getByText("Observaciones")).toBeInTheDocument();
+    expect(screen.getByText("Juli y Cande")).toBeInTheDocument();
   });
 });

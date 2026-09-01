@@ -38,6 +38,7 @@ const columns: Column<Book>[] = [
         <span className="text-xs text-ink-soft">{row.stock}</span>
       ),
   },
+  { key: "observaciones", header: "Observaciones", render: (row) => row.observaciones ?? "—" },
 ];
 
 interface RowActionsProps {

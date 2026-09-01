@@ -67,7 +67,8 @@ function salesDetailColumns(
     { key: "quantity", header: "Cantidad", render: (row) => row.quantity },
     { key: "subtotal", header: "Subtotal", render: (row) => formatARS(row.subtotal) },
     { key: "stock", header: "Stock", render: (row) => row.stock },
-    { key: "seller", header: "Observaciones", render: (row) => formatSeller(row.seller) },
+    { key: "seller", header: "Vendido por", render: (row) => formatSeller(row.seller) },
+    { key: "observaciones", header: "Observaciones", render: (row) => row.observaciones ?? "—" },
     { key: "payment_method", header: "Método de pago", render: (row) => row.payment_method ?? "—" },
     {
       key: "actions",

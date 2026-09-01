@@ -34,6 +34,7 @@ export function BookFormModal({
   const [stock, setStock] = useState(toText(initial?.stock));
   const [isbn, setIsbn] = useState(initial?.isbn ?? "");
   const [genre, setGenre] = useState(initial?.genre ?? "");
+  const [observaciones, setObservaciones] = useState(initial?.observaciones ?? "");
   const [validation, setValidation] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent) {
@@ -66,6 +67,7 @@ export function BookFormModal({
       stock: parsedStock,
       isbn: isbn.trim() || null,
       genre: genre.trim() || null,
+      observaciones: observaciones.trim() || null,
     });
   }
 
@@ -130,6 +132,16 @@ export function BookFormModal({
         <label className="block">
           <span className="text-sm font-medium">Género</span>
           <input type="text" value={genre} onChange={(e) => setGenre(e.target.value)} className={inputClass} />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium">Observaciones</span>
+          <input
+            type="text"
+            value={observaciones}
+            onChange={(e) => setObservaciones(e.target.value)}
+            placeholder="Opcional"
+            className={inputClass}
+          />
         </label>
         {(validation || error) && (
           <p className="text-sm text-red-700 sm:col-span-2" role="alert">

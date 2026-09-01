@@ -189,6 +189,7 @@ async def sales_detail(
                 SaleItem.quantity,
                 SaleItem.subtotal,
                 Book.stock,
+                Sale.observaciones,
             )
             .join(SaleItem, SaleItem.sale_id == Sale.id)
             .join(Book, Book.id == SaleItem.book_id)
@@ -212,6 +213,7 @@ async def sales_detail(
             quantity=row[10],
             subtotal=row[11],
             stock=row[12],
+            observaciones=row[13],
         )
         for row in rows
     ]
