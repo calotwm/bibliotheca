@@ -1,6 +1,6 @@
 """add observaciones to books and sales
 
-Revision ID: add_observaciones_to_books_and_sales
+Revision ID: 5d9c1e3f7a28
 Revises: a92e6ff2d840
 Create Date: 2026-09-01 00:00:00.000000
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'add_observaciones_to_books_and_sales'
+revision: str = '5d9c1e3f7a28'
 down_revision: Union[str, Sequence[str], None] = 'a92e6ff2d840'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
