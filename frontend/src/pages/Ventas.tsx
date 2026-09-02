@@ -13,7 +13,7 @@ import {
   TrashIcon,
   XIcon,
 } from "../components/icons";
-import { formatARS, formatSeller, parsePrice } from "../lib/format";
+import { formatARS, formatObservaciones, formatSeller, parsePrice } from "../lib/format";
 import type { Book, Sale } from "../lib/types";
 
 const PAGE_SIZE = 50;
@@ -427,12 +427,10 @@ export function Ventas() {
               ) : null}
               .
             </p>
-            {result.observaciones ? (
-              <p className="mt-2 text-sm">
-                Observaciones:{" "}
-                <span className="font-semibold">{result.observaciones}</span>
-              </p>
-            ) : null}
+            <p className="mt-2 text-sm">
+              Observaciones:{" "}
+              <span className="font-semibold">{formatObservaciones(result.observaciones)}</span>
+            </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"

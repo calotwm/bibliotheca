@@ -56,3 +56,11 @@ export function formatSeller(seller: string | null | undefined): string {
   if (!seller) return "Sin vendedor";
   return SELLER_LABELS[seller] ?? seller;
 }
+
+// Observaciones fall back to "Juli" when empty (business rule: "las que no
+// digan nada son adquiridas por Juli"). This is display-only; the DB value
+// stays null.
+export function formatObservaciones(obs: string | null | undefined): string {
+  const trimmed = obs?.trim();
+  return trimmed ? trimmed : "Juli";
+}

@@ -219,4 +219,33 @@ describe("Ventas (POS)", () => {
     expect(within(dialog).getByText(/Observaciones:/)).toBeInTheDocument();
     expect(within(dialog).getByText("Juli y Cande")).toBeInTheDocument();
   });
+
+  it("shows Juli in the confirmed-sale modal when observaciones is null", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createSale).mockResolvedValue({
+      id: 1,
+      sale_number: 1,
+      date: "2026-08-29T00:30:00Z",
+      total: "12000.00",
+      seller: "Cande",
+      payment_method: null,
+      customer_name: null,
+      customer_cuit: null,
+      invoice_pdf_path: null,
+      observaciones: null,
+      created_by: null,
+      created_at: "2026-08-29T00:30:00Z",
+      items: [],
+    });
+    renderVentas();
+
+    const addButtons = await screen.findAllByRole("button", { name: /Agregar/ });
+    await user.click(addButtons[0]);
+    await user.selectOptions(screen.getByRole("combobox", { name: "Vendedor" }), "Cande");
+    await user.click(screen.getByRole("button", { name: "Confirmar venta" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Venta confirmada" });
+    expect(within(dialog).getByText(/Observaciones:/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Juli")).toBeInTheDocument();
+  });
 });

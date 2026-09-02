@@ -211,6 +211,14 @@ describe("Inventario", () => {
     expect(screen.getByText("Observaciones")).toBeInTheDocument();
   });
 
+  it("shows Juli for a book with null observaciones", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    renderPage();
+
+    expect(await screen.findByText("Rayuela")).toBeInTheDocument();
+    expect(screen.getByText("Juli")).toBeInTheDocument();
+  });
+
   it("includes observaciones in the book create payload", async () => {
     const user = userEvent.setup();
     vi.mocked(categoriesApi.listCategories).mockResolvedValue([

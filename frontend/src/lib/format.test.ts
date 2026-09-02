@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatARS, formatDate, formatDateTime, parsePrice } from "./format";
+import {
+  formatARS,
+  formatDate,
+  formatDateTime,
+  formatObservaciones,
+  parsePrice,
+} from "./format";
 
 describe("parsePrice", () => {
   it("parses Decimal strings returned by the backend", () => {
@@ -54,5 +60,20 @@ describe("formatDateTime", () => {
 
   it("returns a placeholder for missing values", () => {
     expect(formatDateTime(undefined)).toBe("—");
+  });
+});
+
+describe("formatObservaciones", () => {
+  it("falls back to Juli for null, empty, or whitespace values", () => {
+    expect(formatObservaciones(null)).toBe("Juli");
+    expect(formatObservaciones(undefined)).toBe("Juli");
+    expect(formatObservaciones("")).toBe("Juli");
+    expect(formatObservaciones("   ")).toBe("Juli");
+  });
+
+  it("returns trimmed non-empty values verbatim", () => {
+    expect(formatObservaciones("Cande")).toBe("Cande");
+    expect(formatObservaciones("Juli y Cande")).toBe("Juli y Cande");
+    expect(formatObservaciones("  Cande  ")).toBe("Cande");
   });
 });

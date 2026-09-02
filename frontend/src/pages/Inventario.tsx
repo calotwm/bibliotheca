@@ -8,7 +8,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
 import { PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "../components/icons";
 import { STOCK_FILTERS } from "../lib/constants";
-import { formatARS } from "../lib/format";
+import { formatARS, formatObservaciones } from "../lib/format";
 import type { Column } from "../components/DataTable";
 import type { Book, BookPayload } from "../lib/types";
 
@@ -38,7 +38,7 @@ const columns: Column<Book>[] = [
         <span className="text-xs text-ink-soft">{row.stock}</span>
       ),
   },
-  { key: "observaciones", header: "Observaciones", render: (row) => row.observaciones ?? "—" },
+  { key: "observaciones", header: "Observaciones", render: (row) => formatObservaciones(row.observaciones) },
 ];
 
 interface RowActionsProps {

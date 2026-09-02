@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import * as importApi from "../api/import";
 import { DataTable } from "../components/DataTable";
 import { AlertIcon, CheckIcon, UploadIcon } from "../components/icons";
-import { formatARS } from "../lib/format";
+import { formatARS, formatObservaciones } from "../lib/format";
 import type { Column } from "../components/DataTable";
 import type {
   ImportApplyResult,
@@ -31,7 +31,7 @@ const rowColumns: Column<ImportRow>[] = [
   { key: "editorial", header: "Editorial", render: (row) => row.editorial },
   { key: "price", header: "Precio", render: (row) => formatARS(row.price) },
   { key: "stock", header: "Stock", render: (row) => row.stock },
-  { key: "observaciones", header: "Observaciones", render: (row) => row.observaciones ?? "—" },
+  { key: "observaciones", header: "Observaciones", render: (row) => formatObservaciones(row.observaciones) },
   {
     key: "is_new",
     header: "Tipo",

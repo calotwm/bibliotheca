@@ -201,4 +201,11 @@ describe("Reportes — Editar venta", () => {
     expect(screen.getByText("Observaciones")).toBeInTheDocument();
     expect(screen.getByText("Juli y Cande")).toBeInTheDocument();
   });
+
+  it("shows Juli for a null observaciones in the sales detail table", async () => {
+    renderReportes();
+
+    expect(await screen.findByText("Rayuela")).toBeInTheDocument();
+    expect(screen.getByText("Juli")).toBeInTheDocument();
+  });
 });

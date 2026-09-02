@@ -62,23 +62,43 @@ function renderPage() {
   );
 }
 
+async function uploadAndPreview(container: HTMLElement) {
+  const user = userEvent.setup();
+  const file = new File(["xlsx"], "catalog.xlsx", {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+  await user.upload(input, file);
+  await user.click(screen.getByRole("button", { name: "Previsualizar" }));
+}
+
 describe("ImportarExcel", () => {
   beforeEach(() => {
     vi.mocked(importApi.uploadPreview).mockResolvedValue(PREVIEW);
   });
 
   it("renders the Observaciones column in the preview table", async () => {
-    const user = userEvent.setup();
     const { container } = renderPage();
-
-    const file = new File(["xlsx"], "catalog.xlsx", {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
-    await user.upload(input, file);
-    await user.click(screen.getByRole("button", { name: "Previsualizar" }));
+    await uploadAndPreview(container);
 
     expect(await screen.findByText("Observaciones")).toBeInTheDocument();
     expect(screen.getByText("Juli y Cande")).toBeInTheDocument();
+  });
+
+  it("shows Juli for a row with null observaciones", async () => {
+    vi.mocked(importApi.uploadPreview).mockResolvedValue({
+      ...PREVIEW,
+      sheets: [
+        {
+          ...PREVIEW.sheets[0],
+          rows: [{ ...PREVIEW.sheets[0].rows[0], observaciones: null }],
+        },
+      ],
+    });
+    const { container } = renderPage();
+    await uploadAndPreview(container);
+
+    expect(await screen.findByText("Observaciones")).toBeInTheDocument();
+    expect(screen.getByText("Juli")).toBeInTheDocument();
   });
 });

@@ -4,7 +4,7 @@ import { ApiError } from "../api/client";
 import * as reportsApi from "../api/reports";
 import { updateSale } from "../api/sales";
 import { DataTable } from "../components/DataTable";
-import { formatARS, formatDate, formatSeller } from "../lib/format";
+import { formatARS, formatDate, formatObservaciones, formatSeller } from "../lib/format";
 import type { Column } from "../components/DataTable";
 import type {
   CategoryMetric,
@@ -68,7 +68,7 @@ function salesDetailColumns(
     { key: "subtotal", header: "Subtotal", render: (row) => formatARS(row.subtotal) },
     { key: "stock", header: "Stock", render: (row) => row.stock },
     { key: "seller", header: "Vendido por", render: (row) => formatSeller(row.seller) },
-    { key: "observaciones", header: "Observaciones", render: (row) => row.observaciones ?? "—" },
+    { key: "observaciones", header: "Observaciones", render: (row) => formatObservaciones(row.observaciones) },
     { key: "payment_method", header: "Método de pago", render: (row) => row.payment_method ?? "—" },
     {
       key: "actions",
