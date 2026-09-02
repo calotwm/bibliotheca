@@ -2,11 +2,8 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-SellerName = Literal["Cande", "Julieta", "Cande y Julieta"]
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class SaleItemCreate(BaseModel):
@@ -18,7 +15,6 @@ class SaleCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     items: list[SaleItemCreate] = Field(min_length=1)
-    seller: SellerName
     payment_method: str | None = Field(default=None, max_length=50)
     customer_name: str | None = Field(default=None, max_length=255)
     customer_cuit: str | None = Field(default=None, max_length=32)
@@ -37,28 +33,64 @@ class SaleItemRead(BaseModel):
 class SaleUpdate(BaseModel):
     """Optional sale header fields; at least one must be provided.
 
-    ``None`` explicitly clears a field (e.g. ``seller: null`` means
-    "Sin vendedor"). Only fields present in the request body are updated; the
-    validator distinguishes "not sent" from "sent as null".
+    ``None`` explicitly clears a field (e.g. ``payment_method: null``). Only
+    fields present in the request body are updated; the validator distinguishes
+    "not sent" from "sent as null". ``juli_share``/``cande_share`` are a pair:
+    either both are sent (summing to exactly 100) or neither.
     """
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    seller: SellerName | None = None
+    date: datetime | None = None
     payment_method: str | None = Field(default=None, max_length=50)
     customer_name: str | None = Field(default=None, max_length=255)
     customer_cuit: str | None = Field(default=None, max_length=32)
+    juli_share: Decimal | None = Field(default=None, ge=0, le=100)
+    cande_share: Decimal | None = Field(default=None, ge=0, le=100)
+
+    @field_validator("juli_share", "cande_share")
+    @classmethod
+    def _quantize_share(cls, value: Decimal | None) -> Decimal | None:
+        if value is None:
+            return value
+        return value.quantize(Decimal("0.01"))
 
     @model_validator(mode="after")
     def _at_least_one_field_present(self) -> "SaleUpdate":
         if not (
             self.model_fields_set
-            & {"seller", "payment_method", "customer_name", "customer_cuit"}
+            & {
+                "date",
+                "payment_method",
+                "customer_name",
+                "customer_cuit",
+                "juli_share",
+                "cande_share",
+            }
         ):
             raise ValueError(
-                "At least one field (seller, payment_method, customer_name, "
-                "customer_cuit) must be provided"
+                "At least one field (date, payment_method, customer_name, "
+                "customer_cuit, juli_share, cande_share) must be provided"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _shares_both_or_neither(self) -> "SaleUpdate":
+        has_juli = "juli_share" in self.model_fields_set
+        has_cande = "cande_share" in self.model_fields_set
+        if has_juli or has_cande:
+            if not (has_juli and has_cande):
+                raise ValueError("juli_share and cande_share must be provided together")
+            if self.juli_share is None or self.cande_share is None:
+                raise ValueError("juli_share and cande_share are required together")
+            if self.juli_share + self.cande_share != Decimal("100"):
+                raise ValueError("juli_share and cande_share must sum to 100")
+        return self
+
+    @model_validator(mode="after")
+    def _date_not_null_when_present(self) -> "SaleUpdate":
+        if "date" in self.model_fields_set and self.date is None:
+            raise ValueError("date must not be null")
         return self
 
 
@@ -67,7 +99,8 @@ class SaleRead(BaseModel):
     sale_number: int
     date: datetime
     total: Decimal
-    seller: str | None = None
+    juli_share: Decimal | None = None
+    cande_share: Decimal | None = None
     payment_method: str | None = None
     customer_name: str | None = None
     customer_cuit: str | None = None
@@ -83,7 +116,8 @@ class SaleListRead(BaseModel):
     sale_number: int
     date: datetime
     total: Decimal
-    seller: str | None = None
+    juli_share: Decimal | None = None
+    cande_share: Decimal | None = None
     payment_method: str | None = None
     customer_name: str | None = None
     customer_cuit: str | None = None

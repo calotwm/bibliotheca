@@ -5,13 +5,15 @@
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 
-  --color-paper: #f6f2ea;
-  --color-cream: #faf7f0;
-  --color-navy: #1e293b;
-  --color-navy-light: #334155;
-  --color-ink: #1f2933;
-  --color-ink-soft: #64748b;
-  --color-accent: #8a6d3b;
+  /* Orange + white brand scheme. Token NAMES are unchanged so existing
+     component classes keep working; only the VALUES move to the brand. */
+  --color-paper: #ffffff; /* canvas: white */
+  --color-cream: #faf7f5; /* surfaces: very light warm gray */
+  --color-navy: #f26c35; /* primary: brand orange (#f26c35) */
+  --color-navy-light: #d95a24; /* primary hover/deep orange */
+  --color-ink: #1c1917; /* body text: dark warm gray */
+  --color-ink-soft: #78716c; /* muted text: warm gray */
+  --color-accent: #f26c35; /* accent: orange */
 }
 
 @layer base {
@@ -29,6 +31,6 @@
   h3,
   h4 {
     font-family: var(--font-heading);
-    color: var(--color-navy);
+    color: var(--color-ink);
   }
 }

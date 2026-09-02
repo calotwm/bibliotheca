@@ -75,19 +75,27 @@ export function Sidebar({
         role={mobileOpen ? "dialog" : undefined}
         aria-modal={mobileOpen ? "true" : undefined}
         aria-label="Menú de navegación"
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-navy text-cream transition-transform duration-200 lg:transition-[width] ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-navy/10 bg-paper text-ink transition-transform duration-200 lg:transition-[width] ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 ${collapsed ? "lg:w-16" : "lg:w-64"}`}
       >
-        <div className="flex h-14 items-center gap-2 px-3">
-          <span className="font-heading text-xl font-black">O</span>
-          <span className={`font-heading text-lg font-black ${labelClass}`}>
-            Ojo de Poeta - Libros
+        <div className="flex h-16 items-center gap-2 px-3">
+          <span
+            className={`font-heading text-2xl font-black text-navy ${
+              collapsed ? "" : "lg:hidden"
+            }`}
+          >
+            O
           </span>
+          <img
+            src="/logo-horizontal-naranja.svg"
+            alt="Ojo de Poeta - Libros"
+            className={`h-10 ${collapsed ? "lg:hidden" : ""}`}
+          />
           <button
             type="button"
             onClick={onToggle}
-            className="ml-auto hidden rounded-sm p-1.5 text-cream/80 hover:bg-navy-light hover:text-cream lg:flex"
+            className="ml-auto hidden rounded-sm p-1.5 text-ink-soft hover:bg-navy/10 hover:text-ink lg:flex"
             aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
           >
             <MenuIcon className="h-5 w-5" />
@@ -103,8 +111,8 @@ export function Sidebar({
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm ${
                   isActive
-                    ? "bg-cream font-semibold text-navy"
-                    : "text-cream/80 hover:bg-navy-light hover:text-cream"
+                    ? "bg-navy font-semibold text-white"
+                    : "text-ink-soft hover:bg-navy/10 hover:text-ink"
                 }`
               }
               title={collapsed ? item.label : undefined}
@@ -115,11 +123,11 @@ export function Sidebar({
           ))}
         </nav>
 
-        <div className="border-t border-cream/20 p-2">
+        <div className="border-t border-navy/10 p-2">
           <button
             type="button"
             onClick={onLogout}
-            className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-sm text-cream/80 hover:bg-navy-light hover:text-cream"
+            className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-sm text-ink-soft hover:bg-navy/10 hover:text-ink"
             title={collapsed ? "Cerrar sesión" : undefined}
           >
             <LogoutIcon className="h-5 w-5 shrink-0" />

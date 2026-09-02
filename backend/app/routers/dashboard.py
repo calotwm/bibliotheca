@@ -116,7 +116,6 @@ async def dashboard(
                 sale_number=sale.sale_number,
                 date=sale.date,
                 total=sale.total,
-                seller=sale.seller,
                 payment_method=sale.payment_method,
                 customer_name=sale.customer_name,
                 created_by=sale.created_by,

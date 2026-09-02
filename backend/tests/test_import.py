@@ -320,16 +320,18 @@ GENRE_LAYOUT = [
         ("Cuentos", "Cuentos"),
         ("Poesía", "Poesía"),
         ("poesia", "Poesía"),
-        ("Ensayo", "Ensayo"),
+        ("Ensayo", "No Ficción"),
         ("Teatro", "Teatro"),
-        ("Biografía", "Biografía"),
-        ("biografia", "Biografía"),
+        ("Biografía", "No Ficción"),
+        ("biografia", "No Ficción"),
         ("Crónicas", "No Ficción"),
         ("cronica", "No Ficción"),
-        ("Memorias", "Biografía"),
-        ("Autobiografía", "Biografía"),
-        ("autobiografia", "Biografía"),
+        ("Memorias", "No Ficción"),
+        ("Autobiografía", "No Ficción"),
+        ("autobiografia", "No Ficción"),
         ("Cartas", "No Ficción"),
+        ("Diarios", "No Ficción"),
+        ("diario", "No Ficción"),
     ],
 )
 def test_category_for_genre_map(genre, expected):
@@ -339,9 +341,9 @@ def test_category_for_genre_map(genre, expected):
 @pytest.mark.parametrize(
     "genre,expected",
     [
-        ("Ensayo/Biografía", "Ensayo"),
-        ("Autobiografía/crónica", "Biografía"),
-        ("Ensayo, poesía", "Ensayo"),
+        ("Ensayo/Biografía", "No Ficción"),
+        ("Autobiografía/crónica", "No Ficción"),
+        ("Ensayo, poesía", "No Ficción"),
         ("Novela y cuentos", "Novela"),
         ("Crónicas; Memorias", "No Ficción"),
     ],
@@ -356,10 +358,10 @@ def test_category_for_genre_unmapped_returns_none(genre):
 
 
 def test_category_for_genre_respects_available():
-    # "Ensayo" maps to Ensayo, but when it is not seeded the resolver must fall
-    # through to the next available token (or None).
+    # "Ensayo" maps to No Ficción, but when it is not seeded the resolver must
+    # fall through to the next available token (or None).
     assert category_for_genre("Ensayo", ["Novela", "Cuentos"]) is None
-    assert category_for_genre("Ensayo/Biografía", ["Novela", "Biografía"]) == "Biografía"
+    assert category_for_genre("Ensayo/Teatro", ["Novela", "Teatro"]) == "Teatro"
 
 
 def test_has_genre_column():

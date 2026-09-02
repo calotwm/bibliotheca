@@ -13,25 +13,32 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..config import get_settings
-from ..core.timezone import ba_day_expr, ba_local_date, ba_today, period_filters
+from ..core.timezone import (
+    ba_day_expr,
+    ba_local_date,
+    ba_local_datetime,
+    ba_today,
+    period_filters,
+)
 from ..db import get_session
 from ..models import Book, Category, Sale, SaleItem, User
 from ..schemas.reports import (
     CategoryMetric,
     DaySummary,
+    EarningsReport,
+    EarningsRow,
     EditorialMetric,
     InventoryReport,
     SalesDetailRow,
     SalesGroupSummary,
     SalesReport,
-    SellerReport,
-    SellerSummary,
-    TopSellerRead,
 )
 from ..security.deps import require_user
 from ..security.limiter import limiter
+from ..services.seller_split import sale_shares
 from ..services.stock import STOCK_IN_STOCK, STOCK_OUT
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -39,7 +46,6 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 _settings = get_settings()
 
 GROUP_BY_VALUES = {"category", "editorial"}
-SHARED_SALES_SELLER = "Cande y Julieta"
 
 
 def _money(value) -> Decimal:
@@ -167,8 +173,8 @@ async def sales_detail(
 ) -> list[SalesDetailRow]:
     """Per-item sales ledger (one row per sold item) for a Buenos-Aires range.
 
-    Includes the book's CURRENT stock, category, and the seller as
-    ``seller`` (null means "Sin vendedor"). Ordered by sale datetime desc.
+    Includes the book's CURRENT stock and category. Ordered by sale datetime
+    desc.
     """
     filters = period_filters(
         Sale.date, start_date, end_date, dialect_name=session.get_bind().dialect.name
@@ -180,7 +186,6 @@ async def sales_detail(
                 Sale.sale_number,
                 Sale.date,
                 Sale.payment_method,
-                Sale.seller,
                 Book.title,
                 Book.author,
                 Book.editorial,
@@ -190,6 +195,8 @@ async def sales_detail(
                 SaleItem.subtotal,
                 Book.stock,
                 Sale.observaciones,
+                Sale.juli_share,
+                Sale.cande_share,
             )
             .join(SaleItem, SaleItem.sale_id == Sale.id)
             .join(Book, Book.id == SaleItem.book_id)
@@ -203,36 +210,40 @@ async def sales_detail(
             sale_id=row[0],
             sale_number=row[1],
             date=ba_local_date(row[2]),
+            sale_datetime=ba_local_datetime(row[2]),
             payment_method=row[3],
-            seller=row[4],
-            title=row[5],
-            author=row[6],
-            editorial=row[7],
-            category=row[8],
-            unit_price=row[9],
-            quantity=row[10],
-            subtotal=row[11],
-            stock=row[12],
-            observaciones=row[13],
+            title=row[4],
+            author=row[5],
+            editorial=row[6],
+            category=row[7],
+            unit_price=row[8],
+            quantity=row[9],
+            subtotal=row[10],
+            stock=row[11],
+            observaciones=row[12],
+            juli_share=row[13],
+            cande_share=row[14],
         )
         for row in rows
     ]
 
 
-@router.get("/sellers", response_model=SellerReport)
+@router.get("/earnings", response_model=EarningsReport)
 @limiter.limit(_settings.rate_limit_api)
-async def sellers_report(
+async def earnings_report(
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[User, Depends(require_user)],
     start_date: date | None = None,
     end_date: date | None = None,
-) -> SellerReport:
-    """Per-seller monthly stats with the shared-sale 50/50 split.
+) -> EarningsReport:
+    """Per-seller earnings derived from each sale's automatic percentage split.
 
-    Shared sales ("Cande y Julieta") count once for each seller and their
-    revenue is split in half between both. Sales without a seller are ignored.
-    Default period: the current Buenos-Aires month.
+    Every sale's ``(juli_share, cande_share)`` percentages (stored at creation,
+    or derived from the first item's book ``observaciones`` for legacy rows)
+    allocate its total to Juli and Cande. A seller's ``sale_count`` counts the
+    sales where their share is greater than zero. Default period: the current
+    Buenos-Aires month.
     """
     if start_date is None and end_date is None:
         today = ba_today()
@@ -242,104 +253,42 @@ async def sellers_report(
     filters = period_filters(
         Sale.date, start_date, end_date, dialect_name=session.get_bind().dialect.name
     )
-    is_shared = Sale.seller == SHARED_SALES_SELLER
-    revenue_expr = func.coalesce(
-        func.sum(case((is_shared, Sale.total * Decimal("0.5")), else_=Sale.total)), 0
-    ).label("total_revenue")
-    query = (
-        select(
-            Sale.seller,
-            func.count(Sale.id),
-            revenue_expr,
-            func.coalesce(func.sum(case((is_shared, 1), else_=0)), 0),
-            func.coalesce(
-                func.sum(case((is_shared, Sale.total * Decimal("0.5")), else_=0)), 0
-            ),
+    sales = (
+        await session.execute(
+            select(Sale)
+            .options(selectinload(Sale.items).selectinload(SaleItem.book))
+            .where(*filters)
+            .order_by(Sale.date, Sale.id)
         )
-        .where(Sale.seller.is_not(None), *filters)
-        .group_by(Sale.seller)
-        .order_by(revenue_expr.desc(), Sale.seller)
-    )
-    rows = (await session.execute(query)).all()
-    # Shared sales are aggregated under "Cande y Julieta"; expand them into one
-    # row per seller so the 50/50 split keeps both names on the ledger.
-    merged: dict[str, dict] = {}
-    for seller, count, revenue, shared_count, shared_rev in rows:
-        targets = (
-            SHARED_SALES_SELLER.split(" y ") if seller == SHARED_SALES_SELLER else (seller,)
-        )
-        for target in targets:
-            entry = merged.setdefault(
-                target,
-                {
-                    "sale_count": 0,
-                    "total_revenue": Decimal("0.00"),
-                    "shared_sale_count": 0,
-                    "shared_revenue": Decimal("0.00"),
-                },
-            )
-            entry["sale_count"] += count
-            entry["total_revenue"] += revenue
-            entry["shared_sale_count"] += shared_count
-            entry["shared_revenue"] += shared_rev
+    ).scalars().all()
 
-    sellers = [
-        SellerSummary(
-            seller=target,
-            sale_count=entry["sale_count"],
-            total_revenue=_money(entry["total_revenue"]),
-            shared_sale_count=entry["shared_sale_count"],
-            shared_revenue=_money(entry["shared_revenue"]),
-        )
-        for target, entry in merged.items()
+    total_revenue = Decimal("0.00")
+    juli_revenue = Decimal("0.00")
+    juli_count = 0
+    cande_count = 0
+    for sale in sales:
+        juli_share, cande_share = sale_shares(sale)
+        total_revenue += sale.total
+        if juli_share > 0:
+            juli_count += 1
+            juli_revenue += sale.total * juli_share / Decimal("100")
+        if cande_share > 0:
+            cande_count += 1
+
+    # Remainder method: quantize Juli first, then Cande = total - Juli so the
+    # two rows always sum EXACTLY to the period total (no independent rounding
+    # over/under-count, e.g. 50/50 of 33.33 -> 16.67 + 16.66, not 16.67 + 16.67).
+    juli_revenue_q = _money(juli_revenue)
+    cande_revenue_q = total_revenue - juli_revenue_q
+
+    rows = [
+        EarningsRow(seller="Juli", sale_count=juli_count, revenue=juli_revenue_q),
+        EarningsRow(
+            seller="Cande", sale_count=cande_count, revenue=cande_revenue_q
+        ),
     ]
-    sellers.sort(key=lambda summary: (-summary.total_revenue, summary.seller))
-    return SellerReport(
-        start_date=start_date,
-        end_date=end_date,
-        sellers=sellers,
-    )
-
-
-@router.get("/top-sellers", response_model=list[TopSellerRead])
-@limiter.limit(_settings.rate_limit_api)
-async def top_sellers(
-    request: Request,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    user: Annotated[User, Depends(require_user)],
-    limit: int = Query(10, ge=1, le=100),
-) -> list[TopSellerRead]:
-    """Top N books by quantity sold, with revenue from the price snapshot."""
-    query = (
-        select(
-            SaleItem.book_id,
-            Book.title,
-            Book.author,
-            Book.editorial,
-            func.coalesce(func.sum(SaleItem.quantity), 0).label("quantity_sold"),
-            func.coalesce(func.sum(SaleItem.subtotal), 0).label("revenue"),
-        )
-        .join(Book, Book.id == SaleItem.book_id)
-        .group_by(SaleItem.book_id, Book.title, Book.author, Book.editorial)
-        .order_by(
-            func.sum(SaleItem.quantity).desc(),
-            func.sum(SaleItem.subtotal).desc(),
-            Book.title,
-        )
-        .limit(limit)
-    )
-    rows = (await session.execute(query)).all()
-    return [
-        TopSellerRead(
-            book_id=row[0],
-            title=row[1],
-            author=row[2],
-            editorial=row[3],
-            quantity_sold=row[4],
-            revenue=_money(row[5]),
-        )
-        for row in rows
-    ]
+    rows.sort(key=lambda row: (-row.revenue, row.seller))
+    return EarningsReport(start_date=start_date, end_date=end_date, rows=rows)
 
 
 @router.get("/inventory", response_model=InventoryReport)

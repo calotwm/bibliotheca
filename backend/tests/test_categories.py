@@ -9,9 +9,13 @@ from app.security.password import hash_password
 from app.models import User
 
 
-def test_default_categories_includes_nine():
-    assert len(DEFAULT_CATEGORIES) == 9
-    assert {"Ensayo", "Teatro", "Biografía"} <= set(DEFAULT_CATEGORIES)
+def test_default_categories_after_consolidation():
+    assert len(DEFAULT_CATEGORIES) == 7
+    assert "No Ficción" in DEFAULT_CATEGORIES
+    assert "Teatro" in DEFAULT_CATEGORIES
+    # Consolidated categories are gone from the seed.
+    assert "Ensayo" not in DEFAULT_CATEGORIES
+    assert "Biografía" not in DEFAULT_CATEGORIES
 
 
 async def test_seed_creates_all_default_categories(session):
@@ -19,7 +23,9 @@ async def test_seed_creates_all_default_categories(session):
     names = set((await session.execute(select(Category.name))).scalars().all())
     assert names == set(DEFAULT_CATEGORIES)
     assert len(names) == len(DEFAULT_CATEGORIES)
-    assert {"Ensayo", "Teatro", "Biografía"} <= names
+    assert "No Ficción" in names
+    assert "Ensayo" not in names
+    assert "Biografía" not in names
 
 
 async def test_seed_is_idempotent(session):

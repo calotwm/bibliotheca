@@ -66,6 +66,26 @@ function checkoutPanel() {
   return screen.getByTestId("checkout-panel");
 }
 
+function makeSale(overrides: Partial<Sale> = {}): Sale {
+  return {
+    id: 1,
+    sale_number: 1,
+    date: "2026-08-29T00:30:00Z",
+    total: "12000.00",
+    juli_share: "85.00",
+    cande_share: "15.00",
+    payment_method: null,
+    customer_name: null,
+    customer_cuit: null,
+    invoice_pdf_path: null,
+    observaciones: null,
+    created_by: null,
+    created_at: "2026-08-29T00:30:00Z",
+    items: [],
+    ...overrides,
+  };
+}
+
 describe("Ventas (POS)", () => {
   beforeEach(() => {
     vi.mocked(booksApi.listBooks).mockResolvedValue(MOCK_BOOKS);
@@ -128,91 +148,39 @@ describe("Ventas (POS)", () => {
     expect(within(sheet).getByTestId("cart-total")).toHaveTextContent("12.000");
   });
 
-  it("requires a seller to confirm and sends it with createSale", async () => {
+  it("confirms a sale without requiring a seller", async () => {
     const user = userEvent.setup();
-    const SOLD: Sale = {
-      id: 1,
-      sale_number: 1,
-      date: "2026-08-29T00:30:00Z",
-      total: "12000.00",
-      seller: "Cande",
-      payment_method: null,
-      customer_name: null,
-      customer_cuit: null,
-      invoice_pdf_path: null,
-      observaciones: null,
-      created_by: null,
-      created_at: "2026-08-29T00:30:00Z",
-      items: [],
-    };
-    vi.mocked(createSale).mockResolvedValue(SOLD);
+    vi.mocked(createSale).mockResolvedValue(makeSale());
     renderVentas();
 
     const addButtons = await screen.findAllByRole("button", { name: /Agregar/ });
     await user.click(addButtons[0]);
 
     const confirm = screen.getByRole("button", { name: "Confirmar venta" });
-    expect(confirm).toBeDisabled();
-
-    await user.selectOptions(screen.getByRole("combobox", { name: "Vendedor" }), "Cande");
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 
     expect(createSale).toHaveBeenCalledTimes(1);
     expect(createSale).toHaveBeenCalledWith(
-      expect.objectContaining({ seller: "Cande" })
+      expect.objectContaining({
+        items: [{ book_id: 1, quantity: 1 }],
+      })
     );
-    const dialog = screen.getByRole("dialog", { name: "Venta confirmada" });
-    expect(within(dialog).getByText("Cande")).toBeInTheDocument();
-  });
-
-  it("shows Juli and Cande y Juli as seller labels while keeping backend values", async () => {
-    renderVentas();
-    const combobox = screen.getByRole("combobox", { name: "Vendedor" });
-    const juliOption = within(combobox).getByRole("option", {
-      name: "Juli",
-    }) as HTMLOptionElement;
-    expect(juliOption.value).toBe("Julieta");
-    const sharedOption = within(combobox).getByRole("option", {
-      name: "Cande y Juli",
-    }) as HTMLOptionElement;
-    expect(sharedOption.value).toBe("Cande y Julieta");
-  });
-
-  it("does not confirm a sale when no seller is selected", async () => {
-    const user = userEvent.setup();
-    renderVentas();
-    const addButtons = await screen.findAllByRole("button", { name: /Agregar/ });
-    await user.click(addButtons[0]);
-
-    expect(
-      within(checkoutPanel()).getByRole("button", { name: "Confirmar venta" })
-    ).toBeDisabled();
-    expect(createSale).not.toHaveBeenCalled();
+    expect(createSale).not.toHaveBeenCalledWith(
+      expect.objectContaining({ seller: expect.anything() })
+    );
+    expect(await screen.findByRole("dialog", { name: "Venta confirmada" })).toBeInTheDocument();
   });
 
   it("shows the observaciones line in the confirmed-sale modal", async () => {
     const user = userEvent.setup();
-    vi.mocked(createSale).mockResolvedValue({
-      id: 1,
-      sale_number: 1,
-      date: "2026-08-29T00:30:00Z",
-      total: "12000.00",
-      seller: "Cande",
-      payment_method: null,
-      customer_name: null,
-      customer_cuit: null,
-      invoice_pdf_path: null,
-      observaciones: "Juli y Cande",
-      created_by: null,
-      created_at: "2026-08-29T00:30:00Z",
-      items: [],
-    });
+    vi.mocked(createSale).mockResolvedValue(
+      makeSale({ observaciones: "Juli y Cande" })
+    );
     renderVentas();
 
     const addButtons = await screen.findAllByRole("button", { name: /Agregar/ });
     await user.click(addButtons[0]);
-    await user.selectOptions(screen.getByRole("combobox", { name: "Vendedor" }), "Cande");
     await user.click(screen.getByRole("button", { name: "Confirmar venta" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Venta confirmada" });
@@ -222,26 +190,11 @@ describe("Ventas (POS)", () => {
 
   it("shows Juli in the confirmed-sale modal when observaciones is null", async () => {
     const user = userEvent.setup();
-    vi.mocked(createSale).mockResolvedValue({
-      id: 1,
-      sale_number: 1,
-      date: "2026-08-29T00:30:00Z",
-      total: "12000.00",
-      seller: "Cande",
-      payment_method: null,
-      customer_name: null,
-      customer_cuit: null,
-      invoice_pdf_path: null,
-      observaciones: null,
-      created_by: null,
-      created_at: "2026-08-29T00:30:00Z",
-      items: [],
-    });
+    vi.mocked(createSale).mockResolvedValue(makeSale({ observaciones: null }));
     renderVentas();
 
     const addButtons = await screen.findAllByRole("button", { name: /Agregar/ });
     await user.click(addButtons[0]);
-    await user.selectOptions(screen.getByRole("combobox", { name: "Vendedor" }), "Cande");
     await user.click(screen.getByRole("button", { name: "Confirmar venta" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Venta confirmada" });

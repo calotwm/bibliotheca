@@ -1,11 +1,10 @@
 import type {
   CategoryMetric,
+  EarningsReport,
   EditorialMetric,
   InventoryReport,
   SalesDetailRow,
   SalesReport,
-  SellerReport,
-  TopSeller,
 } from "../lib/types";
 import { apiFetch } from "./client";
 
@@ -33,19 +32,15 @@ export function getSalesDetail(
   return apiFetch<SalesDetailRow[]>(`/reports/sales-detail${qs ? `?${qs}` : ""}`);
 }
 
-export function getSellersReport(
+export function getEarningsReport(
   start_date?: string,
   end_date?: string
-): Promise<SellerReport> {
+): Promise<EarningsReport> {
   const params = new URLSearchParams();
   if (start_date) params.set("start_date", start_date);
   if (end_date) params.set("end_date", end_date);
   const qs = params.toString();
-  return apiFetch<SellerReport>(`/reports/sellers${qs ? `?${qs}` : ""}`);
-}
-
-export function getTopSellers(limit = 10): Promise<TopSeller[]> {
-  return apiFetch<TopSeller[]>(`/reports/top-sellers?limit=${limit}`);
+  return apiFetch<EarningsReport>(`/reports/earnings${qs ? `?${qs}` : ""}`);
 }
 
 export function getInventoryReport(

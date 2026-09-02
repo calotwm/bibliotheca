@@ -36,7 +36,7 @@ vi.mock("./api/import", () => ({
 
 vi.mock("./api/reports", () => ({
   getSalesReport: vi.fn(),
-  getTopSellers: vi.fn(),
+  getEarningsReport: vi.fn(),
   getInventoryReport: vi.fn(),
   getCategoryReport: vi.fn(),
   getEditorialReport: vi.fn(),
@@ -98,7 +98,11 @@ describe("App routing", () => {
       group_by: null,
       groups: [],
     });
-    vi.mocked(reportsApi.getTopSellers).mockResolvedValue([]);
+    vi.mocked(reportsApi.getEarningsReport).mockResolvedValue({
+      start_date: null,
+      end_date: null,
+      rows: [],
+    });
     vi.mocked(reportsApi.getInventoryReport).mockResolvedValue({
       total_books: 0,
       total_units: 0,
@@ -115,7 +119,7 @@ describe("App routing", () => {
     localStorage.clear();
     renderApp(["/"]);
     expect(
-      await screen.findByRole("heading", { name: /Ojo de Poeta/ })
+      await screen.findByRole("img", { name: "Ojo de Poeta - Libros" })
     ).toBeInTheDocument();
   });
 

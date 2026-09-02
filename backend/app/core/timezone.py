@@ -63,6 +63,16 @@ def ba_local_date(value: datetime) -> date:
     return as_utc(value).astimezone(BUENOS_AIRES_TZ).date()
 
 
+def ba_local_datetime(value: datetime) -> datetime:
+    """Buenos-Aires local naive datetime of a stored absolute instant.
+
+    Used to expose a stored instant to the client in the same local frame as
+    :func:`ba_local_date`, so ``sale_datetime.date()`` == ``ba_local_date(...)``
+    for a given instant.
+    """
+    return as_utc(value).astimezone(BUENOS_AIRES_TZ).replace(tzinfo=None)
+
+
 def bound_for_dialect(instant: datetime, *, dialect_name: str) -> datetime:
     """Prepare an absolute instant as a comparison value for the dialect.
 

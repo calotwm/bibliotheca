@@ -190,7 +190,6 @@ async def test_sale_create_returns_observaciones_in_detail(auth_headers, session
         "/api/sales",
         json={
             "items": [{"book_id": book.id, "quantity": 1}],
-            "seller": "Cande",
             "observaciones": "Juli y Cande",
         },
         headers=auth_headers,
@@ -209,7 +208,6 @@ async def test_sale_list_returns_observaciones(auth_headers, session, client):
         "/api/sales",
         json={
             "items": [{"book_id": book.id, "quantity": 1}],
-            "seller": "Julieta",
             "observaciones": "Cande",
         },
         headers=auth_headers,

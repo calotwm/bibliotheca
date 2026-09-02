@@ -132,7 +132,6 @@ async def test_invoice_endpoint_returns_pdf(auth_headers, session, client):
         "/api/sales",
         json={
             "items": [{"book_id": book_id, "quantity": 2}],
-            "seller": "Cande",
             "customer_name": "Ana García",
         },
         headers=auth_headers,
@@ -161,7 +160,7 @@ async def test_invoice_endpoint_returns_pdf(auth_headers, session, client):
 async def test_invoice_endpoint_reprint_regenerates(auth_headers, session, client):
     book_id = await _seed_book(session)
     created = await client.post(
-        "/api/sales", json={"items": [{"book_id": book_id, "quantity": 1}], "seller": "Cande"},
+        "/api/sales", json={"items": [{"book_id": book_id, "quantity": 1}]},
         headers=auth_headers,
     )
     sale_id = created.json()["id"]

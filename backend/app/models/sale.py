@@ -22,7 +22,8 @@ class Sale(Base):
     customer_name: Mapped[str | None] = mapped_column(String(255))
     customer_cuit: Mapped[str | None] = mapped_column(String(32))
     invoice_pdf_path: Mapped[str | None] = mapped_column(String(512))
-    seller: Mapped[str | None] = mapped_column(String(40))
+    juli_share: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    cande_share: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     observaciones: Mapped[str | None] = mapped_column(String(200))
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(

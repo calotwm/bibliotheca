@@ -13,16 +13,10 @@ import {
   TrashIcon,
   XIcon,
 } from "../components/icons";
-import { formatARS, formatObservaciones, formatSeller, parsePrice } from "../lib/format";
+import { formatARS, formatObservaciones, parsePrice } from "../lib/format";
 import type { Book, Sale } from "../lib/types";
 
 const PAGE_SIZE = 50;
-
-export const SELLERS: { value: string; label: string }[] = [
-  { value: "Cande", label: "Cande" },
-  { value: "Julieta", label: "Juli" },
-  { value: "Cande y Julieta", label: "Cande y Juli" },
-];
 
 interface CartLine {
   book: Book;
@@ -51,7 +45,6 @@ export function Ventas() {
   const debouncedSearch = useDebouncedValue(search);
   const [cart, setCart] = useState<Record<number, number>>({});
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [seller, setSeller] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerCuit, setCustomerCuit] = useState("");
   const [result, setResult] = useState<Sale | null>(null);
@@ -131,7 +124,6 @@ export function Ventas() {
     mutationFn: () =>
       createSale({
         items: lines.map((line) => ({ book_id: line.book.id, quantity: line.qty })),
-        seller,
         payment_method: paymentMethod.trim() || null,
         customer_name: customerName.trim() || null,
         customer_cuit: customerCuit.trim() || null,
@@ -141,7 +133,6 @@ export function Ventas() {
       setCart({});
       setCartOpen(false);
       setSearch("");
-      setSeller("");
       setPaymentMethod("");
       setCustomerName("");
       setCustomerCuit("");
@@ -162,10 +153,6 @@ export function Ventas() {
     setError(null);
     if (lines.length === 0) {
       setError("El carrito está vacío.");
-      return;
-    }
-    if (!seller) {
-      setError("Seleccione el vendedor o la vendedora para confirmar la venta.");
       return;
     }
     saleMutation.mutate();
@@ -233,22 +220,6 @@ export function Ventas() {
           </div>
 
           <div className="mt-3 space-y-2">
-            <select
-              value={seller}
-              onChange={(event) => setSeller(event.target.value)}
-              className={inputClass}
-              required
-              aria-label="Vendedor"
-            >
-              <option value="" disabled>
-                Seleccionar vendedor/a…
-              </option>
-              {SELLERS.map((sellerOption) => (
-                <option key={sellerOption.value} value={sellerOption.value}>
-                  {sellerOption.label}
-                </option>
-              ))}
-            </select>
             <input
               type="text"
               value={paymentMethod}
@@ -281,7 +252,7 @@ export function Ventas() {
           <button
             type="button"
             onClick={confirmSale}
-            disabled={saleMutation.isPending || lines.length === 0 || !seller}
+            disabled={saleMutation.isPending || lines.length === 0}
             className="mt-3 min-h-10 w-full rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
           >
             {saleMutation.isPending ? "Confirmando…" : "Confirmar venta"}
@@ -418,14 +389,7 @@ export function Ventas() {
             </div>
             <p className="mt-3 text-sm">
               Venta <span className="font-semibold">#{result.sale_number}</span> registrada por{" "}
-              <span className="font-semibold">{formatARS(result.total)}</span>
-              {result.seller ? (
-                <>
-                  , vendida por{" "}
-                  <span className="font-semibold">{formatSeller(result.seller)}</span>
-                </>
-              ) : null}
-              .
+              <span className="font-semibold">{formatARS(result.total)}</span>.
             </p>
             <p className="mt-2 text-sm">
               Observaciones:{" "}

@@ -1,6 +1,7 @@
 """Sales POS endpoints: create, list, and detail."""
 
-from datetime import date
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -41,13 +42,23 @@ def _item_to_read(item: SaleItem) -> SaleItemRead:
     )
 
 
+def _audit_value(value: Any) -> Any:
+    """JSON-safe representation of a changed field value for the audit log."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return str(value)
+    return value
+
+
 def _sale_to_read(sale: Sale) -> SaleRead:
     return SaleRead(
         id=sale.id,
         sale_number=sale.sale_number,
         date=sale.date,
         total=sale.total,
-        seller=sale.seller,
+        juli_share=sale.juli_share,
+        cande_share=sale.cande_share,
         payment_method=sale.payment_method,
         customer_name=sale.customer_name,
         customer_cuit=sale.customer_cuit,
@@ -72,7 +83,6 @@ async def create_sale_endpoint(
             session,
             cashier=user,
             items=body.items,
-            seller=body.seller,
             payment_method=body.payment_method,
             customer_name=body.customer_name,
             customer_cuit=body.customer_cuit,
@@ -140,7 +150,8 @@ async def list_sales(
             sale_number=sale.sale_number,
             date=sale.date,
             total=sale.total,
-            seller=sale.seller,
+            juli_share=sale.juli_share,
+            cande_share=sale.cande_share,
             payment_method=sale.payment_method,
             customer_name=sale.customer_name,
             customer_cuit=sale.customer_cuit,
@@ -162,10 +173,11 @@ async def update_sale(
     session: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[User, Depends(require_user)],
 ) -> SaleRead:
-    """Update sale header fields (seller, payment method, customer data).
+    """Update sale header fields (date, payment, customer, shares).
 
     Only the fields present in the body are changed. Totals, items and the
-    existing invoice are left untouched. ``Seller null`` clears the seller.
+    existing invoice are left untouched. ``payment_method: null`` clears it.
+    ``juli_share``/``cande_share`` must be sent together and sum to 100.
     """
     sale = (
         await session.execute(
@@ -184,7 +196,7 @@ async def update_sale(
     for field, value in fields.items():
         old = getattr(sale, field)
         if old != value:
-            changes[field] = {"old": old, "new": value}
+            changes[field] = {"old": _audit_value(old), "new": _audit_value(value)}
             setattr(sale, field, value)
 
     if changes:

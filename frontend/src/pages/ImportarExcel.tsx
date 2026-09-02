@@ -133,13 +133,14 @@ export function ImportarExcel() {
 
         {preview && (
           <div className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
               {[
                 { label: "Parseadas", value: totals?.parsed ?? 0 },
                 { label: "Nuevas", value: totals?.inserts ?? 0 },
                 { label: "Actualizadas", value: totals?.updates ?? 0 },
                 { label: "Omitidas", value: totals?.skips ?? 0 },
                 { label: "Con error", value: totals?.errors ?? 0 },
+                { label: "Se desactivarán", value: preview.deactivated },
               ].map((item) => (
                 <div key={item.label} className="rounded-sm border border-navy/10 bg-paper p-3">
                   <p className="truncate text-xs text-ink-soft">{item.label}</p>
@@ -149,6 +150,13 @@ export function ImportarExcel() {
                 </div>
               ))}
             </div>
+
+            {preview.deactivated > 0 && (
+              <p className="text-sm text-ink-soft">
+                {preview.deactivated} {preview.deactivated === 1 ? "libro se desactivará" : "libros se desactivarán"}{" "}
+                (no está{preview.deactivated === 1 ? "" : "n"} en el catálogo). Las ventas históricas se conservan.
+              </p>
+            )}
 
             <DataTable
               columns={summaryColumns}
@@ -204,7 +212,8 @@ export function ImportarExcel() {
             </p>
             <p className="mt-1 text-sm text-green-700">
               {importResult.totals.inserts} nuevas · {importResult.totals.updates} actualizadas ·{" "}
-              {importResult.totals.skips} omitidas · {importResult.totals.errors} con error.
+              {importResult.totals.skips} omitidas · {importResult.totals.errors} con error ·{" "}
+              {importResult.deactivated} desactivadas.
             </p>
           </div>
         )}

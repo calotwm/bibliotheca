@@ -47,6 +47,7 @@ const PREVIEW: ImportPreview = {
   ],
   errors: [],
   totals: { parsed: 1, inserts: 1, updates: 0, skips: 0, errors: 0 },
+  deactivated: 0,
 };
 
 function renderPage() {
@@ -100,5 +101,17 @@ describe("ImportarExcel", () => {
 
     expect(await screen.findByText("Observaciones")).toBeInTheDocument();
     expect(screen.getByText("Juli")).toBeInTheDocument();
+  });
+
+  it("shows the deactivated count in the preview summary", async () => {
+    vi.mocked(importApi.uploadPreview).mockResolvedValue({
+      ...PREVIEW,
+      deactivated: 3,
+    });
+    const { container } = renderPage();
+    await uploadAndPreview(container);
+
+    expect(await screen.findByText("Se desactivarán")).toBeInTheDocument();
+    expect(screen.getByText("3 libros se desactivarán", { exact: false })).toBeInTheDocument();
   });
 });

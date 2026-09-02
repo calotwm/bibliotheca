@@ -68,7 +68,8 @@ export interface Sale {
   sale_number: number;
   date: string;
   total: string;
-  seller: string | null;
+  juli_share: string | null;
+  cande_share: string | null;
   payment_method: string | null;
   customer_name: string | null;
   customer_cuit: string | null;
@@ -84,7 +85,8 @@ export interface SaleListItem {
   sale_number: number;
   date: string;
   total: string;
-  seller: string | null;
+  juli_share: string | null;
+  cande_share: string | null;
   payment_method: string | null;
   customer_name: string | null;
   customer_cuit: string | null;
@@ -101,7 +103,6 @@ export interface SalePayloadItem {
 
 export interface SalePayload {
   items: SalePayloadItem[];
-  seller: string;
   payment_method?: string | null;
   customer_name?: string | null;
   customer_cuit?: string | null;
@@ -109,10 +110,12 @@ export interface SalePayload {
 }
 
 export interface SaleUpdatePayload {
-  seller?: string | null;
+  date?: string | null;
   payment_method?: string | null;
   customer_name?: string | null;
   customer_cuit?: string | null;
+  juli_share?: number;
+  cande_share?: number;
 }
 
 export interface Supplier {
@@ -164,15 +167,6 @@ export interface SalesReport {
   groups: SalesGroupSummary[];
 }
 
-export interface TopSeller {
-  book_id: number;
-  title: string;
-  author: string;
-  editorial: string;
-  quantity_sold: number;
-  revenue: string;
-}
-
 export interface InventoryReport {
   total_books: number;
   total_units: number;
@@ -201,6 +195,7 @@ export interface SalesDetailRow {
   sale_id: number;
   sale_number: number;
   date: string;
+  sale_datetime: string | null;
   title: string;
   author: string;
   editorial: string;
@@ -209,23 +204,22 @@ export interface SalesDetailRow {
   quantity: number;
   subtotal: string;
   stock: number;
-  seller: string | null;
   payment_method: string | null;
   observaciones: string | null;
+  juli_share: string | null;
+  cande_share: string | null;
 }
 
-export interface SellerSummary {
+export interface EarningsRow {
   seller: string;
   sale_count: number;
-  total_revenue: string;
-  shared_sale_count: number;
-  shared_revenue: string;
+  revenue: string;
 }
 
-export interface SellerReport {
+export interface EarningsReport {
   start_date: string | null;
   end_date: string | null;
-  sellers: SellerSummary[];
+  rows: EarningsRow[];
 }
 
 export interface LowStockItem {
@@ -242,7 +236,6 @@ export interface RecentSale {
   sale_number: number;
   date: string;
   total: string;
-  seller: string | null;
   payment_method: string | null;
   customer_name: string | null;
   created_by: number | null;
@@ -308,11 +301,13 @@ export interface ImportPreview {
   summaries: ImportSheetSummary[];
   errors: ImportRowError[];
   totals: ImportTotals;
+  deactivated: number;
 }
 
 export interface ImportApplyResult {
   sheets: ImportSheetSummary[];
   totals: ImportTotals;
+  deactivated: number;
 }
 
 export interface BulkPreviewRow {

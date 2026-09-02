@@ -18,18 +18,16 @@ COLUMN_KEYWORDS = frozenset(
 )
 
 # Exact category names seeded at startup (REQ-CAT-2). Shared with the
-# categories router so the importer and the seed stay in sync. Ensayo, Teatro
-# and Biografía are appended before OPORTUNIDADES so the existing ordering is
-# preserved.
+# categories router so the importer and the seed stay in sync. Ensayo and
+# Biografía were consolidated into "No Ficción" (see the data migration);
+# Teatro is appended before OPORTUNIDADES to preserve the existing ordering.
 DEFAULT_CATEGORIES = [
     "Novela",
     "Cuentos",
     "No Ficción",
     "Poesía",
     "Infantil y Juvenil",
-    "Ensayo",
     "Teatro",
-    "Biografía",
     "OPORTUNIDADES",
 ]
 
@@ -55,18 +53,21 @@ GENRE_FALLBACK_CATEGORY = "No Ficción"
 
 # Normalized genre token -> canonical category. Keys are accent/case-insensitive
 # (looked up through :func:`_normalize_genre_token`); any token prefixed with
-# "autobiograf" resolves to Biografía.
+# "autobiograf" resolves to No Ficción (biography/essay/chronicle/letters/diary
+# genres were consolidated into "No Ficción").
 GENRE_CATEGORY_MAP = {
     "novela": "Novela",
     "cuentos": "Cuentos",
     "poesia": "Poesía",
-    "ensayo": "Ensayo",
+    "ensayo": "No Ficción",
     "teatro": "Teatro",
-    "biografia": "Biografía",
+    "biografia": "No Ficción",
     "cronica": "No Ficción",
     "cronicas": "No Ficción",
-    "memorias": "Biografía",
+    "memorias": "No Ficción",
     "cartas": "No Ficción",
+    "diario": "No Ficción",
+    "diarios": "No Ficción",
 }
 
 
@@ -122,7 +123,7 @@ def _genre_to_category(token: str) -> str | None:
     """Map a single normalized genre token to a canonical category name."""
     key = _normalize_genre_token(token)
     if key.startswith("autobiograf"):
-        return "Biografía"
+        return "No Ficción"
     return GENRE_CATEGORY_MAP.get(key)
 
 

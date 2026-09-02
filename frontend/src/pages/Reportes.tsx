@@ -4,19 +4,18 @@ import { ApiError } from "../api/client";
 import * as reportsApi from "../api/reports";
 import { updateSale } from "../api/sales";
 import { DataTable } from "../components/DataTable";
-import { formatARS, formatDate, formatObservaciones, formatSeller } from "../lib/format";
+import { formatARS, formatDate, formatObservaciones } from "../lib/format";
+import { defaultSharesFromObservaciones, timeOfDay } from "../lib/shares";
 import type { Column } from "../components/DataTable";
 import type {
   CategoryMetric,
   DaySummary,
+  EarningsRow,
   EditorialMetric,
   SalesDetailRow,
   SalesGroupSummary,
   SaleUpdatePayload,
-  SellerSummary,
-  TopSeller,
 } from "../lib/types";
-import { SELLERS } from "./Ventas";
 
 const dayColumns: Column<DaySummary>[] = [
   { key: "date", header: "Fecha", render: (row) => formatDate(row.date) },
@@ -31,12 +30,10 @@ const groupColumns: Column<SalesGroupSummary>[] = [
   { key: "revenue", header: "Ingresos", render: (row) => <span className="font-semibold">{formatARS(row.revenue)}</span> },
 ];
 
-const topSellerColumns: Column<TopSeller>[] = [
-  { key: "title", header: "Título", render: (row) => <span className="font-medium">{row.title}</span> },
-  { key: "author", header: "Autor", render: (row) => row.author },
-  { key: "editorial", header: "Editorial", render: (row) => row.editorial },
-  { key: "quantity_sold", header: "Unidades", render: (row) => row.quantity_sold },
-  { key: "revenue", header: "Ingresos", render: (row) => <span className="font-semibold">{formatARS(row.revenue)}</span> },
+const earningsColumns: Column<EarningsRow>[] = [
+  { key: "seller", header: "Vendedora", render: (row) => <span className="font-medium">{row.seller}</span> },
+  { key: "sale_count", header: "Ventas", render: (row) => row.sale_count },
+  { key: "revenue", header: "Total", render: (row) => <span className="font-semibold">{formatARS(row.revenue)}</span> },
 ];
 
 const categoryColumns: Column<CategoryMetric>[] = [
@@ -67,7 +64,6 @@ function salesDetailColumns(
     { key: "quantity", header: "Cantidad", render: (row) => row.quantity },
     { key: "subtotal", header: "Subtotal", render: (row) => formatARS(row.subtotal) },
     { key: "stock", header: "Stock", render: (row) => row.stock },
-    { key: "seller", header: "Vendido por", render: (row) => formatSeller(row.seller) },
     { key: "observaciones", header: "Observaciones", render: (row) => formatObservaciones(row.observaciones) },
     { key: "payment_method", header: "Método de pago", render: (row) => row.payment_method ?? "—" },
     {
@@ -86,13 +82,6 @@ function salesDetailColumns(
   ];
 }
 
-const sellerColumns: Column<SellerSummary>[] = [
-  { key: "seller", header: "Vendedor", render: (row) => <span className="font-medium">{formatSeller(row.seller)}</span> },
-  { key: "sale_count", header: "Ventas", render: (row) => row.sale_count },
-  { key: "shared_sale_count", header: "Compartidas", render: (row) => row.shared_sale_count },
-  { key: "total_revenue", header: "Total vendido", render: (row) => <span className="font-semibold">{formatARS(row.total_revenue)}</span> },
-];
-
 function firstOfMonth(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -110,14 +99,16 @@ export function Reportes() {
   const [groupBy, setGroupBy] = useState("");
   const [detailStart, setDetailStart] = useState("");
   const [detailEnd, setDetailEnd] = useState("");
-  const [sellerStart, setSellerStart] = useState(firstOfMonth);
-  const [sellerEnd, setSellerEnd] = useState(todayISO);
+  const [earningsStart, setEarningsStart] = useState(firstOfMonth);
+  const [earningsEnd, setEarningsEnd] = useState(todayISO);
   const [editingSale, setEditingSale] = useState<SalesDetailRow | null>(null);
   const [editFields, setEditFields] = useState({
-    seller: "",
     payment_method: "",
     customer_name: "",
     customer_cuit: "",
+    date: "",
+    juli_share: "",
+    cande_share: "",
   });
   const [editError, setEditError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -134,7 +125,7 @@ export function Reportes() {
       setEditingSale(null);
       setSaved(true);
       void salesDetailQuery.refetch();
-      void sellersQuery.refetch();
+      void earningsQuery.refetch();
       void queryClient.invalidateQueries({ queryKey: ["reports-sales"] });
     },
     onError: (err: unknown) => {
@@ -148,24 +139,37 @@ export function Reportes() {
 
   function openEditModal(row: SalesDetailRow) {
     setEditingSale(row);
+    const storedJuli = row.juli_share;
+    const storedCande = row.cande_share;
+    const shares =
+      storedJuli !== null && storedCande !== null
+        ? { juli: Number(storedJuli), cande: Number(storedCande) }
+        : defaultSharesFromObservaciones(row.observaciones);
     setEditFields({
-      seller: row.seller ?? "",
       payment_method: row.payment_method ?? "",
       customer_name: "",
       customer_cuit: "",
+      date: row.date ?? "",
+      juli_share: String(shares.juli),
+      cande_share: String(shares.cande),
     });
     setEditError(null);
     setSaved(false);
   }
 
   function buildEditPayload(): SaleUpdatePayload {
-    // Seller and payment are always sent (pre-filled from the detail row);
-    // customer fields are only sent when typed, so untouched customer data is
-    // never accidentally cleared (the detail report does not expose it).
+    // Payment and shares are always sent (pre-filled); customer fields are
+    // only sent when typed, so untouched customer data is never cleared.
     const payload: SaleUpdatePayload = {
-      seller: editFields.seller.trim() || null,
       payment_method: editFields.payment_method.trim() || null,
+      juli_share: Number(editFields.juli_share),
+      cande_share: Number(editFields.cande_share),
     };
+    // Only send the date when the user actually changed it, so a payment/shares
+    // edit never rewrites the stored instant (which would drift the BA day).
+    if (editFields.date && editFields.date !== editingSale?.date) {
+      payload.date = `${editFields.date}T${timeOfDay(editingSale?.sale_datetime)}`;
+    }
     const customerName = editFields.customer_name.trim();
     if (customerName) payload.customer_name = customerName;
     const customerCuit = editFields.customer_cuit.trim();
@@ -176,6 +180,12 @@ export function Reportes() {
   function handleEditSave() {
     if (!editingSale) return;
     setEditError(null);
+    const juli = Number(editFields.juli_share);
+    const cande = Number(editFields.cande_share);
+    if (Number.isNaN(juli) || Number.isNaN(cande) || juli + cande !== 100) {
+      setEditError("Los porcentajes de Juli y Cande deben sumar 100.");
+      return;
+    }
     editMutation.mutate({ saleId: editingSale.sale_id, payload: buildEditPayload() });
   }
 
@@ -189,14 +199,9 @@ export function Reportes() {
     queryFn: () => reportsApi.getSalesDetail(detailStart || undefined, detailEnd || undefined),
   });
 
-  const sellersQuery = useQuery({
-    queryKey: ["reports-sellers", sellerStart, sellerEnd],
-    queryFn: () => reportsApi.getSellersReport(sellerStart || undefined, sellerEnd || undefined),
-  });
-
-  const topSellersQuery = useQuery({
-    queryKey: ["reports-top-sellers"],
-    queryFn: () => reportsApi.getTopSellers(10),
+  const earningsQuery = useQuery({
+    queryKey: ["reports-earnings", earningsStart, earningsEnd],
+    queryFn: () => reportsApi.getEarningsReport(earningsStart || undefined, earningsEnd || undefined),
   });
 
   const inventoryQuery = useQuery({
@@ -350,32 +355,14 @@ export function Reportes() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-lg font-bold">Top vendedores</h2>
-        {topSellersQuery.isLoading && <p className="text-sm text-ink-soft">Cargando…</p>}
-        {topSellersQuery.isError && (
-          <p className="text-sm text-red-700">
-            {topSellersQuery.error instanceof Error ? topSellersQuery.error.message : "No se pudo cargar el reporte."}
-          </p>
-        )}
-        {topSellersQuery.data && (
-          <DataTable
-            columns={topSellerColumns}
-            rows={topSellersQuery.data}
-            getRowKey={(row) => row.book_id}
-            emptyMessage="Sin ventas registradas."
-          />
-        )}
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-lg font-bold">Ventas por vendedor/a</h2>
+        <h2 className="mb-2 text-lg font-bold">Ventas por vendedora</h2>
         <div className="flex flex-wrap items-end gap-2">
           <label className="block">
             <span className="text-xs text-ink-soft">Desde</span>
             <input
               type="date"
-              value={sellerStart}
-              onChange={(event) => setSellerStart(event.target.value)}
+              value={earningsStart}
+              onChange={(event) => setEarningsStart(event.target.value)}
               className={`${inputClass} mt-1`}
             />
           </label>
@@ -383,29 +370,28 @@ export function Reportes() {
             <span className="text-xs text-ink-soft">Hasta</span>
             <input
               type="date"
-              value={sellerEnd}
-              onChange={(event) => setSellerEnd(event.target.value)}
+              value={earningsEnd}
+              onChange={(event) => setEarningsEnd(event.target.value)}
               className={`${inputClass} mt-1`}
             />
           </label>
         </div>
         <p className="mb-2 mt-2 text-xs text-ink-soft">
-          Las ventas compartidas ("Cande y Juli") se dividen 50/50 entre ambas
-          vendedoras. Las ventas sin vendedor no se contabilizan.
+          El reparto se calcula según quién adquirió cada libro (85/15, 100/0, 50/50).
         </p>
 
-        {sellersQuery.isLoading && <p className="text-sm text-ink-soft">Cargando…</p>}
-        {sellersQuery.isError && (
+        {earningsQuery.isLoading && <p className="text-sm text-ink-soft">Cargando…</p>}
+        {earningsQuery.isError && (
           <p className="text-sm text-red-700">
-            {sellersQuery.error instanceof Error
-              ? sellersQuery.error.message
+            {earningsQuery.error instanceof Error
+              ? earningsQuery.error.message
               : "No se pudo cargar el reporte."}
           </p>
         )}
-        {sellersQuery.data && (
+        {earningsQuery.data && (
           <DataTable
-            columns={sellerColumns}
-            rows={sellersQuery.data.sellers}
+            columns={earningsColumns}
+            rows={earningsQuery.data.rows}
             getRowKey={(row) => row.seller}
             emptyMessage="Sin ventas registradas en el período."
           />
@@ -490,27 +476,20 @@ export function Reportes() {
           <div className="w-full max-w-md rounded-sm border border-navy/10 bg-cream p-6 shadow-xl">
             <h2 className="text-lg font-bold">Editar venta #{editingSale.sale_number}</h2>
             <p className="mt-1 text-xs text-ink-soft">
-              Se editan solo vendedor, pago y datos del cliente. Ítems, total y
-              fecha no se modifican.
+              Se editan fecha, pago, datos del cliente y porcentajes. Ítems y
+              total no se modifican.
             </p>
             <div className="mt-4 space-y-4">
               <label className="block">
-                <span className="text-xs text-ink-soft">Vendedor</span>
-                <select
-                  value={editFields.seller}
+                <span className="text-xs text-ink-soft">Fecha</span>
+                <input
+                  type="date"
+                  value={editFields.date}
                   onChange={(event) =>
-                    setEditFields({ ...editFields, seller: event.target.value })
+                    setEditFields({ ...editFields, date: event.target.value })
                   }
                   className={`${inputClass} mt-1`}
-                  aria-label="Vendedor"
-                >
-                  <option value="">Sin vendedor</option>
-                  {SELLERS.map((sellerOption) => (
-                    <option key={sellerOption.value} value={sellerOption.value}>
-                      {sellerOption.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <label className="block">
                 <span className="text-xs text-ink-soft">Método de pago</span>
@@ -548,6 +527,34 @@ export function Reportes() {
                   className={`${inputClass} mt-1`}
                 />
               </label>
+              <div className="block">
+                <span className="text-xs text-ink-soft">Porcentajes (Juli / Cande)</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={editFields.juli_share}
+                    onChange={(event) =>
+                      setEditFields({ ...editFields, juli_share: event.target.value })
+                    }
+                    aria-label="Juli %"
+                    className={`${inputClass} mt-1`}
+                  />
+                  <span className="text-sm text-ink-soft">/</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={editFields.cande_share}
+                    onChange={(event) =>
+                      setEditFields({ ...editFields, cande_share: event.target.value })
+                    }
+                    aria-label="Cande %"
+                    className={`${inputClass} mt-1`}
+                  />
+                </div>
+              </div>
 
               {editError && (
                 <p className="text-sm text-red-700" role="alert">

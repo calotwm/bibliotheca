@@ -29,15 +29,6 @@ class SalesReport(BaseModel):
     groups: list[SalesGroupSummary] = []
 
 
-class TopSellerRead(BaseModel):
-    book_id: int
-    title: str
-    author: str
-    editorial: str
-    quantity_sold: int
-    revenue: Decimal
-
-
 class InventoryReport(BaseModel):
     total_books: int
     total_units: int
@@ -81,7 +72,6 @@ class RecentSaleRead(BaseModel):
     sale_number: int
     date: datetime
     total: Decimal
-    seller: str | None = None
     payment_method: str | None = None
     customer_name: str | None = None
     created_by: int | None = None
@@ -92,6 +82,7 @@ class SalesDetailRow(BaseModel):
     sale_id: int
     sale_number: int
     date: date
+    sale_datetime: datetime | None = None
     title: str
     author: str
     editorial: str
@@ -100,23 +91,22 @@ class SalesDetailRow(BaseModel):
     quantity: int
     subtotal: Decimal
     stock: int
-    seller: str | None = None
     payment_method: str | None = None
     observaciones: str | None = None
+    juli_share: Decimal | None = None
+    cande_share: Decimal | None = None
 
 
-class SellerSummary(BaseModel):
+class EarningsRow(BaseModel):
     seller: str
     sale_count: int
-    total_revenue: Decimal
-    shared_sale_count: int
-    shared_revenue: Decimal
+    revenue: Decimal
 
 
-class SellerReport(BaseModel):
+class EarningsReport(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
-    sellers: list[SellerSummary] = []
+    rows: list[EarningsRow] = []
 
 
 class DashboardRead(BaseModel):

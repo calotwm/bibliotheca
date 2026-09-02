@@ -12,12 +12,12 @@ import hashlib
 import json
 from collections.abc import Iterable
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..excel_import.parser import ParsedRow, parse_workbook
-from ..models import Category, User
+from ..models import Book, Category, User
 from ..schemas.import_data import (
     ImportApplyRequest,
     ImportApplyResponse,
@@ -38,9 +38,9 @@ class ImportApplyError(Exception):
     """Apply failed; the caller rolls back the whole transaction."""
 
 
-def _canonical_sheets(sheets: Iterable[ImportSheet]) -> str:
-    """Stable JSON view of the apply payload (excludes the preview-only ``is_new``)."""
-    payload = [
+def _canonical_sheets(sheets: Iterable[ImportSheet]) -> list[dict]:
+    """Stable JSON-serializable view of the apply payload (excludes ``is_new``)."""
+    return [
         {
             "sheet": sheet.sheet,
             "category": sheet.category,
@@ -60,12 +60,57 @@ def _canonical_sheets(sheets: Iterable[ImportSheet]) -> str:
         }
         for sheet in sheets
     ]
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
-def compute_token(sheets: Iterable[ImportSheet]) -> str:
-    """Content hash of the reviewed rows; mismatch aborts apply."""
-    return hashlib.sha256(_canonical_sheets(sheets).encode("utf-8")).hexdigest()
+def compute_token(sheets: Iterable[ImportSheet], deactivated: int = 0) -> str:
+    """Content hash of the reviewed rows + deactivated count; mismatch aborts apply."""
+    payload = {"sheets": _canonical_sheets(sheets), "deactivated": int(deactivated)}
+    encoded = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+async def _active_books_with_keys(
+    session: AsyncSession,
+) -> list[tuple[int, tuple[str, str, str]]]:
+    """Return ``(book_id, natural_key)`` for every currently-active book."""
+    rows = (
+        await session.execute(
+            select(Book.id, Book.title, Book.author, Book.editorial).where(
+                Book.is_active.is_(True)
+            )
+        )
+    ).all()
+    return [
+        (book_id, natural_key(title, author, editorial))
+        for book_id, title, author, editorial in rows
+    ]
+
+
+async def _count_deactivated(
+    session: AsyncSession, present_keys: set[tuple[str, str, str]]
+) -> int:
+    """Count active books whose natural key is absent from the file's row set."""
+    return sum(
+        1 for _, key in await _active_books_with_keys(session) if key not in present_keys
+    )
+
+
+async def _deactivate_absent_books(
+    session: AsyncSession, present_keys: set[tuple[str, str, str]]
+) -> int:
+    """Deactivate active books not present in ``present_keys``; return the count."""
+    absent_ids = [
+        book_id
+        for book_id, key in await _active_books_with_keys(session)
+        if key not in present_keys
+    ]
+    if absent_ids:
+        await session.execute(
+            update(Book).where(Book.id.in_(absent_ids)).values(is_active=False)
+        )
+    return len(absent_ids)
 
 
 async def _classify_rows(
@@ -194,13 +239,15 @@ async def preview_import(
             totals.skips += skips
             totals.errors += row_errors
 
+    deactivated = await _count_deactivated(session, seen)
     return ImportPreviewResponse(
-        token=compute_token(sheets_payload),
+        token=compute_token(sheets_payload, deactivated),
         filename=filename,
         sheets=sheets_payload,
         summaries=summaries,
         errors=errors,
         totals=totals,
+        deactivated=deactivated,
     )
 
 
@@ -212,7 +259,7 @@ async def apply_import(
     All-or-nothing (REQ-IMP-3): any invalid row aborts the whole import. In-file
     duplicate natural keys are skipped, matching the preview accounting.
     """
-    if request.token != compute_token(request.sheets):
+    if request.token != compute_token(request.sheets, request.deactivated):
         raise ImportApplyError("Preview token mismatch; re-run preview before applying")
 
     category_names = {sheet.category for sheet in request.sheets}
@@ -275,6 +322,10 @@ async def apply_import(
             "Import aborted: a row violates a database constraint"
         ) from exc
 
+    # REPLACE mode: after upserting (which re-activates present rows), deactivate
+    # the active books whose natural key is absent from the imported row set.
+    deactivated = await _deactivate_absent_books(session, seen)
+
     await log_audit(
         session,
         user_id=admin.id,
@@ -283,6 +334,7 @@ async def apply_import(
         action="import_apply",
         changes={
             "filename": request.filename,
+            "deactivated": deactivated,
             "sheets": [
                 {
                     "sheet": s.sheet,
@@ -294,4 +346,6 @@ async def apply_import(
             ],
         },
     )
-    return ImportApplyResponse(sheets=summaries, totals=totals)
+    return ImportApplyResponse(
+        sheets=summaries, totals=totals, deactivated=deactivated
+    )

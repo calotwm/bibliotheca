@@ -56,7 +56,6 @@ async def _seed_sale(
     session,
     book_id,
     *,
-    seller="Cande",
     quantity=1,
     when=None,
     payment_method=None,
@@ -65,7 +64,6 @@ async def _seed_sale(
         session,
         cashier=await _admin(session),
         items=[SaleItemCreate(book_id=book_id, quantity=quantity)],
-        seller=seller,
         payment_method=payment_method,
     )
     if when is not None:
@@ -74,9 +72,9 @@ async def _seed_sale(
     return sale
 
 
-async def _seed_legacy_sale_without_seller(session, book_id) -> Sale:
-    """Insert a sale row directly (as pre-seller deployments would have)."""
-    sale = Sale(sale_number=1, total=Decimal("10.00"), seller=None)
+async def _seed_legacy_sale_without_shares(session, book_id) -> Sale:
+    """Insert a sale row directly (as pre-share deployments would have)."""
+    sale = Sale(sale_number=1, total=Decimal("10.00"))
     sale.items.append(
         SaleItem(
             book_id=book_id,
@@ -102,7 +100,7 @@ async def test_sales_detail_returns_expected_columns_and_orders_by_date(
         payment_method="Efectivo",
     )
     recent = await _seed_sale(
-        session, book_id, seller="Julieta", when=datetime(2026, 8, 15, 12, 0)
+        session, book_id, when=datetime(2026, 8, 15, 12, 0)
     )
     assert old.id != recent.id
 
@@ -124,7 +122,6 @@ async def test_sales_detail_returns_expected_columns_and_orders_by_date(
     assert row["unit_price"] == "10.00"
     assert row["quantity"] == 1
     assert row["subtotal"] == "10.00"
-    assert row["seller"] == "Julieta"
     assert row["payment_method"] is None
     assert row["date"] == "2026-08-15"
     # Current stock after the 3 sold units (10 - 3).
@@ -133,7 +130,6 @@ async def test_sales_detail_returns_expected_columns_and_orders_by_date(
     old_row = rows[1]
     assert old_row["quantity"] == 2
     assert old_row["subtotal"] == "20.00"
-    assert old_row["seller"] == "Cande"
     assert old_row["payment_method"] == "Efectivo"
     assert old_row["date"] == "2026-08-10"
 
@@ -151,19 +147,35 @@ async def test_sales_detail_older_sale_rows_share_the_same_stock(
     assert rows[0]["stock"] == 8
 
 
-async def test_sales_detail_null_seller_surfaces_as_none(
+async def test_sales_detail_legacy_sale_surfaces_none_fields(
     auth_headers, session, client
 ):
     book_id = await _seed_book(session)
-    sale = await _seed_legacy_sale_without_seller(session, book_id)
+    sale = await _seed_legacy_sale_without_shares(session, book_id)
 
     response = await client.get("/api/reports/sales-detail", headers=auth_headers)
     assert response.status_code == 200
     rows = response.json()
     assert len(rows) == 1
     assert rows[0]["sale_id"] == sale.id
-    assert rows[0]["seller"] is None
-    assert response.json() and rows[0]["payment_method"] is None
+    assert rows[0]["payment_method"] is None
+    assert rows[0]["observaciones"] is None
+
+
+async def test_sales_detail_datetime_is_ba_local_consistent(
+    auth_headers, session, client
+):
+    book_id = await _seed_book(session, stock=10)
+    # Stored instant 2026-08-29 00:30 UTC == 2026-08-28 21:30 Buenos Aires.
+    await _seed_sale(session, book_id, when=datetime(2026, 8, 29, 0, 30))
+
+    response = await client.get("/api/reports/sales-detail", headers=auth_headers)
+    assert response.status_code == 200
+    row = response.json()[0]
+    # `date` and `sale_datetime` derive from the SAME BA-local instant.
+    assert row["date"] == "2026-08-28"
+    assert row["sale_datetime"] == "2026-08-28T21:30:00"
+    assert row["sale_datetime"].startswith(row["date"])
 
 
 async def test_sales_detail_date_range_uses_buenos_aires_days(

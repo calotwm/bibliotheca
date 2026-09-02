@@ -33,6 +33,7 @@ export function applyImport(preview: ImportPreview): Promise<ImportApplyResult> 
       token: preview.token,
       filename: preview.filename,
       sheets: preview.sheets,
+      deactivated: preview.deactivated,
     },
   });
 }

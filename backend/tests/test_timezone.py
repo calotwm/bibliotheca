@@ -81,7 +81,6 @@ async def _seed_sale(session, book_id, *, when: datetime, quantity=1) -> Sale:
         session,
         cashier=await _admin(session),
         items=[SaleItemCreate(book_id=book_id, quantity=quantity)],
-        seller="Cande",
     )
     sale.date = when
     await session.commit()
@@ -162,7 +161,6 @@ async def test_dashboard_today_uses_buenos_aires_day(auth_headers, session, clie
         session,
         cashier=await _admin(session),
         items=[SaleItemCreate(book_id=book_id, quantity=1)],
-        seller="Cande",
     )
     # Overwrite with the current absolute instant as UTC (naive = UTC).
     sale.date = datetime.now(timezone.utc).replace(tzinfo=None)

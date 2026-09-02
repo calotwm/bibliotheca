@@ -70,14 +70,17 @@ class ImportPreviewResponse(BaseModel):
     summaries: list[ImportSheetSummary] = Field(default_factory=list)
     errors: list[ImportRowError] = Field(default_factory=list)
     totals: ImportTotals
+    deactivated: int = 0
 
 
 class ImportApplyRequest(BaseModel):
     token: str = Field(min_length=1)
     filename: str = ""
     sheets: list[ImportSheet] = Field(default_factory=list)
+    deactivated: int = 0
 
 
 class ImportApplyResponse(BaseModel):
     sheets: list[ImportSheetSummary] = Field(default_factory=list)
     totals: ImportTotals
+    deactivated: int = 0

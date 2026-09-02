@@ -43,7 +43,7 @@ async def _seed_book(session, *, stock=5, price="10.00", title="Rayuela", **over
 
 
 def _sale_payload(book_id: int, quantity: int = 1, **overrides) -> dict:
-    payload = {"items": [{"book_id": book_id, "quantity": quantity}], "seller": "Cande"}
+    payload = {"items": [{"book_id": book_id, "quantity": quantity}]}
     payload.update(overrides)
     return payload
 
@@ -101,7 +101,6 @@ async def test_oversell_within_one_sale_rolls_back_all(auth_headers, session, cl
         "/api/sales",
         json={
             "items": [{"book_id": ok.id, "quantity": 2}, {"book_id": low.id, "quantity": 2}],
-            "seller": "Cande",
         },
         headers=auth_headers,
     )
@@ -163,75 +162,105 @@ async def test_sale_detail_not_found(auth_headers, client):
     assert response.status_code == 404
 
 
-async def test_create_sale_accepts_each_seller(auth_headers, session, client):
+async def test_create_sale_stores_default_juli_split(auth_headers, session, client):
+    """A book with blank observaciones stores the 85/15 split."""
     book_id = await _seed_book(session, stock=5)
-    for seller in ["Cande", "Julieta", "Cande y Julieta"]:
-        response = await client.post(
-            "/api/sales",
-            json=_sale_payload(book_id, 1, seller=seller),
-            headers=auth_headers,
-        )
-        assert response.status_code == 201
-        assert response.json()["seller"] == seller
+    response = await client.post(
+        "/api/sales", json=_sale_payload(book_id, 1), headers=auth_headers
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["juli_share"] == "85.00"
+    assert data["cande_share"] == "15.00"
+
+    sale = (await session.execute(select(Sale).where(Sale.id == data["id"]))).scalar_one()
+    assert sale.juli_share == Decimal("85.00")
+    assert sale.cande_share == Decimal("15.00")
 
 
-async def test_create_sale_requires_seller(auth_headers, session, client):
-    book_id = await _seed_book(session)
+async def test_create_sale_stores_cande_split_from_first_item(
+    auth_headers, session, client
+):
+    """The split comes from the first item's book observaciones."""
+    cid = await _category_id(session)
+    cande_book = Book(
+        title="Cande Book",
+        author="A",
+        editorial="E",
+        category_id=cid,
+        price="10.00",
+        stock=5,
+        observaciones="Cande",
+    )
+    session.add(cande_book)
+    await session.commit()
+
+    response = await client.post(
+        "/api/sales", json=_sale_payload(cande_book.id, 1), headers=auth_headers
+    )
+    assert response.status_code == 201
+    assert response.json()["juli_share"] == "0.00"
+    assert response.json()["cande_share"] == "100.00"
+
+
+async def test_create_sale_multi_item_uses_first_items_book(
+    auth_headers, session, client
+):
+    """Multi-item sales derive the split from the first item's book only."""
+    cid = await _category_id(session)
+    first = Book(
+        title="First",
+        author="A",
+        editorial="E",
+        category_id=cid,
+        price="10.00",
+        stock=5,
+        observaciones="Juli y Cande",
+    )
+    second = Book(
+        title="Second",
+        author="B",
+        editorial="E",
+        category_id=cid,
+        price="10.00",
+        stock=5,
+        observaciones="Cande",
+    )
+    session.add_all([first, second])
+    await session.commit()
+
     response = await client.post(
         "/api/sales",
-        json={"items": [{"book_id": book_id, "quantity": 1}]},
+        json={
+            "items": [
+                {"book_id": first.id, "quantity": 1},
+                {"book_id": second.id, "quantity": 1},
+            ]
+        },
         headers=auth_headers,
     )
-    assert response.status_code == 422
+    assert response.status_code == 201
+    assert response.json()["juli_share"] == "50.00"
+    assert response.json()["cande_share"] == "50.00"
 
 
-async def test_create_sale_rejects_invalid_seller(auth_headers, session, client):
-    book_id = await _seed_book(session)
-    response = await client.post(
-        "/api/sales",
-        json=_sale_payload(book_id, 1, seller="Eva"),
-        headers=auth_headers,
-    )
-    assert response.status_code == 422
-
-
-async def test_create_sale_rejects_blank_seller(auth_headers, session, client):
-    book_id = await _seed_book(session)
-    response = await client.post(
-        "/api/sales",
-        json=_sale_payload(book_id, 1, seller=""),
-        headers=auth_headers,
-    )
-    assert response.status_code == 422
-
-
-async def test_sale_detail_exposes_seller(auth_headers, session, client):
-    book_id = await _seed_book(session)
+async def test_sale_detail_and_list_expose_shares(auth_headers, session, client):
+    book_id = await _seed_book(session, stock=5)
     created = await client.post(
-        "/api/sales",
-        json=_sale_payload(book_id, 1, seller="Julieta"),
-        headers=auth_headers,
+        "/api/sales", json=_sale_payload(book_id, 1), headers=auth_headers
     )
     assert created.status_code == 201
     sale_id = created.json()["id"]
 
     detail = await client.get(f"/api/sales/{sale_id}", headers=auth_headers)
     assert detail.status_code == 200
-    assert detail.json()["seller"] == "Julieta"
-
-
-async def test_sales_list_exposes_seller(auth_headers, session, client):
-    book_id = await _seed_book(session)
-    created = await client.post(
-        "/api/sales",
-        json=_sale_payload(book_id, 1, seller="Cande"),
-        headers=auth_headers,
-    )
-    assert created.status_code == 201
+    assert detail.json()["juli_share"] == "85.00"
+    assert detail.json()["cande_share"] == "15.00"
 
     page = await client.get("/api/sales", headers=auth_headers)
     assert page.status_code == 200
-    assert page.json()[0]["seller"] == "Cande"
+    assert page.json()[0]["juli_share"] == "85.00"
+    assert page.json()[0]["cande_share"] == "15.00"
 
 
 async def test_sales_list_pagination(auth_headers, session, client):
