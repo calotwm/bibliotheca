@@ -80,17 +80,12 @@ export function Sidebar({
         } lg:translate-x-0 ${collapsed ? "lg:w-16" : "lg:w-64"}`}
       >
         <div className="flex h-16 items-center gap-2 px-3">
-          <span
-            className={`font-heading text-2xl font-black text-navy ${
-              collapsed ? "" : "lg:hidden"
-            }`}
-          >
-            O
-          </span>
           <img
             src="/logo-horizontal-naranja.svg"
             alt="Ojo de Poeta - Libros"
-            className={`h-10 ${collapsed ? "lg:hidden" : ""}`}
+            className={`h-10 w-auto object-contain ${
+              collapsed ? "lg:hidden" : ""
+            }`}
           />
           <button
             type="button"
