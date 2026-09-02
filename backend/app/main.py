@@ -104,6 +104,13 @@ def _mount_spa_if_built(app: FastAPI, dist_dir: Path | None = None) -> None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Not found"
                 )
+            # Serve real files from the dist root (e.g. /logo-horizontal-naranja.svg,
+            # favicon, robots.txt) before falling back to the SPA index. Guard
+            # against path traversal: the resolved candidate must stay inside dist.
+            dist_root = dist_dir.resolve()
+            candidate = (dist_dir / full_path).resolve()
+            if candidate != dist_root and dist_root in candidate.parents and candidate.is_file():
+                return FileResponse(str(candidate))
             return FileResponse(str(index_file))
 
 

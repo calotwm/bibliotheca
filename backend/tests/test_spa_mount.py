@@ -14,16 +14,18 @@ from app.main import create_app
 
 INDEX_HTML = "<!doctype html><html><body>SPA</body></html>"
 ASSET_JS = "console.log('app');"
+ROOT_SVG = "<svg xmlns='http://www.w3.org/2000/svg'><text>logo</text></svg>"
 
 
 @pytest.fixture
 def fake_dist(tmp_path: Path) -> Path:
-    """A minimal built-SPA tree: index.html + assets/."""
+    """A minimal built-SPA tree: index.html + assets/ + a root-level asset."""
     dist = tmp_path / "dist"
     assets = dist / "assets"
     assets.mkdir(parents=True)
     (dist / "index.html").write_text(INDEX_HTML, encoding="utf-8")
     (assets / "app.js").write_text(ASSET_JS, encoding="utf-8")
+    (dist / "logo-horizontal-naranja.svg").write_text(ROOT_SVG, encoding="utf-8")
     return dist
 
 
@@ -53,6 +55,23 @@ async def test_spa_assets_served(fake_dist: Path) -> None:
         response = await client.get("/assets/app.js")
         assert response.status_code == 200
         assert response.text == ASSET_JS
+
+
+async def test_root_level_asset_served_from_dist(fake_dist: Path) -> None:
+    """Files at the dist root (logo, favicon) must be served, not the SPA fallback."""
+    async with await _client_for(fake_dist) as client:
+        response = await client.get("/logo-horizontal-naranja.svg")
+        assert response.status_code == 200
+        assert response.text == ROOT_SVG
+        assert response.headers["content-type"].startswith("image/svg+xml")
+
+
+async def test_path_traversal_in_spa_fallback_rejected(fake_dist: Path) -> None:
+    async with await _client_for(fake_dist) as client:
+        response = await client.get("/../../etc/passwd")
+        # Resolves outside dist -> must NOT leak files; falls back to the SPA index.
+        assert response.status_code == 200
+        assert response.text == INDEX_HTML
 
 
 async def test_api_keeps_priority_over_spa(fake_dist: Path) -> None:
