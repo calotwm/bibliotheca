@@ -5,7 +5,7 @@ import * as reportsApi from "../api/reports";
 import { updateSale } from "../api/sales";
 import { DataTable } from "../components/DataTable";
 import { formatARS, formatDate, formatObservaciones } from "../lib/format";
-import { defaultSharesFromObservaciones, timeOfDay } from "../lib/shares";
+import { defaultSharesFromObservaciones, sellerLabelFromShares, timeOfDay } from "../lib/shares";
 import type { Column } from "../components/DataTable";
 import type {
   CategoryMetric,
@@ -64,7 +64,11 @@ function salesDetailColumns(
     { key: "quantity", header: "Cantidad", render: (row) => row.quantity },
     { key: "subtotal", header: "Subtotal", render: (row) => formatARS(row.subtotal) },
     { key: "stock", header: "Stock", render: (row) => row.stock },
-    { key: "observaciones", header: "Observaciones", render: (row) => formatObservaciones(row.observaciones) },
+    { key: "observaciones", header: "Observaciones", render: (row) => (
+      row.observaciones?.trim()
+        ? formatObservaciones(row.observaciones)
+        : sellerLabelFromShares(row.juli_share, row.cande_share)
+    ) },
     { key: "payment_method", header: "Método de pago", render: (row) => row.payment_method ?? "—" },
     {
       key: "actions",
