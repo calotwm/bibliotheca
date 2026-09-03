@@ -289,4 +289,25 @@ describe("Reportes", () => {
     expect(await screen.findByText("Rayuela")).toBeInTheDocument();
     expect(screen.getByText("Juli")).toBeInTheDocument();
   });
+
+  it("shows the stored split label when observaciones is empty but shares are 50/50", async () => {
+    vi.mocked(reportsApi.getSalesDetail).mockResolvedValue([
+      { ...DETAIL_ROW, juli_share: "50.00", cande_share: "50.00" },
+    ]);
+    renderReportes();
+
+    expect(await screen.findByText("Rayuela")).toBeInTheDocument();
+    expect(screen.getByText("Juli y Cande")).toBeInTheDocument();
+  });
+
+  it("shows Cande when observaciones is empty but shares are Cande-only", async () => {
+    vi.mocked(reportsApi.getSalesDetail).mockResolvedValue([
+      { ...DETAIL_ROW, juli_share: "0.00", cande_share: "100.00" },
+    ]);
+    renderReportes();
+
+    expect(await screen.findByText("Rayuela")).toBeInTheDocument();
+    expect(screen.getByText("Cande")).toBeInTheDocument();
+    expect(screen.queryByText("Juli y Cande")).not.toBeInTheDocument();
+  });
 });

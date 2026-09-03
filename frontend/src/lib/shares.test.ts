@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultSharesFromObservaciones, timeOfDay } from "./shares";
+import { defaultSharesFromObservaciones, sellerLabelFromShares, timeOfDay } from "./shares";
 
 describe("defaultSharesFromObservaciones", () => {
   it("defaults to 85/15 for null, empty, or no-name observaciones", () => {
@@ -37,6 +37,30 @@ describe("defaultSharesFromObservaciones", () => {
       juli: 50,
       cande: 50,
     });
+  });
+});
+
+describe("sellerLabelFromShares", () => {
+  it("labels a 50/50 split as Juli y Cande (string or number)", () => {
+    expect(sellerLabelFromShares(50, 50)).toBe("Juli y Cande");
+    expect(sellerLabelFromShares("50.00", "50.00")).toBe("Juli y Cande");
+  });
+
+  it("labels Cande-only as Cande", () => {
+    expect(sellerLabelFromShares(0, 100)).toBe("Cande");
+    expect(sellerLabelFromShares("0.00", "100.00")).toBe("Cande");
+  });
+
+  it("labels Juli-only and the default split as Juli", () => {
+    expect(sellerLabelFromShares(100, 0)).toBe("Juli");
+    expect(sellerLabelFromShares(85, 15)).toBe("Juli");
+    expect(sellerLabelFromShares(null, null)).toBe("Juli");
+    expect(sellerLabelFromShares(undefined, undefined)).toBe("Juli");
+  });
+
+  it("shows explicit percentages for unusual splits", () => {
+    expect(sellerLabelFromShares(60, 40)).toBe("Juli 60% / Cande 40%");
+    expect(sellerLabelFromShares(70, 30)).toBe("Juli 70% / Cande 30%");
   });
 });
 
