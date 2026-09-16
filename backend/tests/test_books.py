@@ -383,3 +383,196 @@ async def test_list_books_sort_combined_with_filter(auth_headers, session, clien
     )
     assert response.status_code == 200
     assert [b["title"] for b in response.json()] == ["Zorro"]
+
+
+# --- seller filter --------------------------------------------------------
+
+
+async def _seed_seller_books(auth_headers, session, client):
+    novela = await _category_id(session, "Novela")
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="JuliOnly", observaciones="Juli"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="CandeOnly", observaciones="Cande"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Joint", observaciones="Juli y Cande"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Reversed", observaciones="Cande y Juli"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Blank", observaciones=""),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="NullObs"),
+        headers=auth_headers,
+    )
+
+
+async def test_list_books_seller_filter_juli_includes_blank_and_null(
+    auth_headers, session, client
+):
+    await _seed_seller_books(auth_headers, session, client)
+    response = await client.get("/api/books?seller=Juli", headers=auth_headers)
+    assert response.status_code == 200
+    titles = {book["title"] for book in response.json()}
+    assert titles == {"JuliOnly", "Blank", "NullObs"}
+
+
+async def test_list_books_seller_filter_cande_excludes_juli_only(
+    auth_headers, session, client
+):
+    await _seed_seller_books(auth_headers, session, client)
+    response = await client.get("/api/books?seller=Cande", headers=auth_headers)
+    assert response.status_code == 200
+    titles = {book["title"] for book in response.json()}
+    assert titles == {"CandeOnly"}
+
+
+async def test_list_books_seller_filter_joint_includes_reversed_text(
+    auth_headers, session, client
+):
+    await _seed_seller_books(auth_headers, session, client)
+    response = await client.get(
+        "/api/books?seller=Juli%20y%20Cande", headers=auth_headers
+    )
+    assert response.status_code == 200
+    titles = {book["title"] for book in response.json()}
+    assert titles == {"Joint", "Reversed"}
+
+
+async def test_list_books_seller_invalid_returns_400(auth_headers, session, client):
+    response = await client.get("/api/books?seller=Otro", headers=auth_headers)
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "seller" in detail
+    assert "Juli" in detail and "Cande" in detail
+
+
+async def test_list_books_seller_composes_with_category_stock_and_pagination(
+    auth_headers, session, client
+):
+    novela = await _category_id(session, "Novela")
+    poesia = await _category_id(session, "Poesía")
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="J-Novela-In", observaciones="Juli", stock=3),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="J-Novela-Out", observaciones="Juli", stock=0),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(poesia, title="J-Poesia", observaciones="Juli", stock=2),
+        headers=auth_headers,
+    )
+    response = await client.get(
+        "/api/books?seller=Juli&category_id="
+        f"{novela}&stock_status=In%20Stock&page=1&page_size=10",
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    titles = [book["title"] for book in response.json()]
+    assert titles == ["J-Novela-In"]
+
+
+# --- sort_by=observaciones ------------------------------------------------
+
+
+async def _seed_observaciones_sort(auth_headers, session, client):
+    novela = await _category_id(session, "Novela")
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="LowerJuli", observaciones="juli"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="UpperJuli", observaciones="Juli"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="UpperCande", observaciones="CANDE"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Joint", observaciones="Juli y Cande"),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="Blank", observaciones=""),
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/books",
+        json=_book_payload(novela, title="NullObs"),
+        headers=auth_headers,
+    )
+
+
+async def test_list_books_sort_by_observaciones_case_insensitive_with_nulls_grouped(
+    auth_headers, session, client
+):
+    await _seed_observaciones_sort(auth_headers, session, client)
+    response = await client.get(
+        "/api/books?sort_by=observaciones&sort_dir=asc", headers=auth_headers
+    )
+    assert response.status_code == 200
+    titles = [book["title"] for book in response.json()]
+    # ASC contract: blank/NULL rows are grouped at the start and are
+    # consecutive. (Their relative order within the group is unspecified.)
+    blank_or_null = {"Blank", "NullObs"}
+    assert {titles[0], titles[1]} == blank_or_null
+    # Case-insensitive ASC order on the remaining rows:
+    # 'cande' < 'juli' < 'juli y cande'.
+    rest = titles[2:]
+    assert rest.index("UpperCande") < min(rest.index("LowerJuli"), rest.index("UpperJuli"))
+    assert max(rest.index("LowerJuli"), rest.index("UpperJuli")) < rest.index("Joint")
+
+
+async def test_list_books_sort_by_observaciones_desc_reverses_order(
+    auth_headers, session, client
+):
+    await _seed_observaciones_sort(auth_headers, session, client)
+    desc = await client.get(
+        "/api/books?sort_by=observaciones&sort_dir=desc", headers=auth_headers
+    )
+    titles = [book["title"] for book in desc.json()]
+    # DESC contract: blank/NULL rows are grouped at the end (consecutive).
+    # The remaining rows are reverse-case-insensitive sorted:
+    # 'juli y cande' > 'juli' > 'cande'.
+    blank_or_null = {"Blank", "NullObs"}
+    assert {titles[-1], titles[-2]} == blank_or_null
+    head = titles[:-2]
+    assert head[0] == "Joint"
+    assert set(head[1:3]) == {"LowerJuli", "UpperJuli"}
+    assert head[3] == "UpperCande"
+
+
+async def test_list_books_sort_by_observaciones_in_invalid_list_returns_400(
+    auth_headers, session, client
+):
+    """Before the change: sort_by values were a fixed tuple; an invalid value
+    returns 400 naming the allowed values. observaciones MUST be in the list."""
+    response = await client.get("/api/books?sort_by=garbage", headers=auth_headers)
+    assert response.status_code == 400
+    assert "observaciones" in response.json()["detail"]

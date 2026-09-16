@@ -17,6 +17,20 @@ interface DataTableProps<T> {
   sortBy?: string;
   sortDir?: "asc" | "desc";
   onSort?: (key: string) => void;
+  /**
+   * When true, the rendered <table> uses `table-fixed` and the column
+   * `className` propagates to the header `<th>` so per-column widths work
+   * (otherwise widths can collapse under a `min-w-[640px]` outer wrapper).
+   * Defaults to `false` so existing consumers render byte-identical DOM.
+   */
+  fixedLayout?: boolean;
+  /**
+   * When true, body cells use `whitespace-normal break-words` so long free-
+   * text content (e.g. `observaciones`) flows onto extra lines instead of
+   * widening the column. Defaults to `false` to preserve today's behavior
+   * for `Precios` and other consumers.
+   */
+  wrapText?: boolean;
 }
 
 export function DataTable<T>({
@@ -27,13 +41,19 @@ export function DataTable<T>({
   sortBy,
   sortDir,
   onSort,
+  fixedLayout = false,
+  wrapText = false,
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return <p className="py-6 text-center text-sm text-ink-soft">{emptyMessage}</p>;
   }
+  const wrapTdClasses = wrapText ? "whitespace-normal break-words " : "";
+  const tableClass = fixedLayout
+    ? "w-full min-w-[640px] text-left text-sm table-fixed"
+    : "w-full min-w-[640px] text-left text-sm";
   return (
     <div className="overflow-x-auto rounded-sm border border-navy/10 bg-cream">
-      <table className="w-full min-w-[640px] text-left text-sm">
+      <table className={tableClass}>
         <thead className="bg-navy text-cream">
           <tr>
             {columns.map((column) => {
@@ -42,7 +62,7 @@ export function DataTable<T>({
               return (
                 <th
                   key={column.key}
-                  className="px-3 py-2.5 font-medium"
+                  className={`px-3 py-2.5 font-medium ${column.className ?? ""}`}
                 >
                   {column.sortable && onSort ? (
                     <button
@@ -67,7 +87,7 @@ export function DataTable<T>({
           {rows.map((row, index) => (
             <tr key={getRowKey ? getRowKey(row) : index} className="hover:bg-navy/5">
               {columns.map((column) => (
-                <td key={column.key} className={`px-3 py-2.5 ${column.className ?? ""}`}>
+                <td key={column.key} className={`px-3 py-2.5 ${wrapTdClasses}${column.className ?? ""}`}>
                   {column.render(row)}
                 </td>
               ))}

@@ -207,8 +207,15 @@ describe("Inventario", () => {
     ]);
     renderPage();
 
-    expect(await screen.findByText("Juli y Cande")).toBeInTheDocument();
-    expect(screen.getByText("Observaciones")).toBeInTheDocument();
+    // Wait for the table body to render with the row.
+    await waitFor(() => {
+      const cells = document.querySelectorAll("td");
+      expect(Array.from(cells).some((c) => c.textContent === "Juli y Cande")).toBe(true);
+    });
+    // The header is now a sortable button, so the header text shares the
+    // <button> with the sort arrow span — query the underlying <th> directly.
+    const headers = Array.from(document.querySelectorAll("th"));
+    expect(headers.some((h) => h.textContent?.startsWith("Observaciones"))).toBe(true);
   });
 
   it("shows Juli for a book with null observaciones", async () => {
@@ -216,7 +223,12 @@ describe("Inventario", () => {
     renderPage();
 
     expect(await screen.findByText("Rayuela")).toBeInTheDocument();
-    expect(screen.getByText("Juli")).toBeInTheDocument();
+    // The Vendedora select also lists "Juli" as an option, so the cell text
+    // is one of several matches. Assert at least one match exists in the
+    // table body (the cell renders "Juli" via formatObservaciones fallback).
+    const cells = document.querySelectorAll("td");
+    const cellTexts = Array.from(cells).map((c) => c.textContent);
+    expect(cellTexts).toContain("Juli");
   });
 
   it("includes observaciones in the book create payload", async () => {
@@ -244,5 +256,67 @@ describe("Inventario", () => {
         expect.objectContaining({ observaciones: "Juli y Cande" })
       );
     });
+  });
+
+  it("renders a Vendedora select with four options", () => {
+    renderPage();
+    const select = screen.getByLabelText("Vendedora") as HTMLSelectElement;
+    const optionValues = Array.from(select.options).map((o) => o.value);
+    const optionLabels = Array.from(select.options).map((o) => o.textContent);
+    // Values: empty (Todas) + the three buckets.
+    expect(optionValues).toEqual(["", "Juli", "Cande", "Juli y Cande"]);
+    // Labels: Todas + bucket names.
+    expect(optionLabels).toEqual(["Todas", "Juli", "Cande", "Juli y Cande"]);
+  });
+
+  it("sends seller to listBooks and resets page when Vendedora changes", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    const user = userEvent.setup();
+    renderPage();
+
+    // Initial call has no seller (Todas).
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalled();
+    });
+    const sellerSelect = screen.getByLabelText("Vendedora") as HTMLSelectElement;
+    await user.selectOptions(sellerSelect, "Cande");
+
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ seller: "Cande", page: 1 })
+      );
+    });
+  });
+
+  it("toggles observaciones header sort asc then desc", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    const user = userEvent.setup();
+    renderPage();
+
+    const obsHeader = await screen.findByRole("button", { name: /observaciones/i });
+    await user.click(obsHeader);
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "observaciones", sort_dir: "asc" })
+      );
+    });
+
+    await user.click(await screen.findByRole("button", { name: /observaciones/i }));
+    await waitFor(() => {
+      expect(booksApi.listBooks).toHaveBeenCalledWith(
+        expect.objectContaining({ sort_by: "observaciones", sort_dir: "desc" })
+      );
+    });
+  });
+
+  it("renders DataTable with fixedLayout and wrapText enabled", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    renderPage();
+    const table = await screen.findByRole("table");
+    expect(table.className).toContain("table-fixed");
+    // Long observaciones text triggers wrapping on body cells.
+    const firstCell = table.querySelector("td");
+    expect(firstCell?.className ?? "").toContain("whitespace-normal");
+    expect(firstCell?.className ?? "").toContain("break-words");
   });
 });

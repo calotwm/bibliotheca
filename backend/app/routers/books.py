@@ -15,27 +15,34 @@ from ..security.deps import require_admin, require_user
 from ..security.limiter import limiter
 from ..services.audit import log_audit
 from ..services.catalog import upsert_book
+from ..services.seller_split import seller_filter_condition
 from ..services.stock import STOCK_IN_STOCK, STOCK_LOW, STOCK_OUT, compute_stock_status
 
 router = APIRouter(prefix="/api/books", tags=["books"])
 
 _settings = get_settings()
 
-SORT_FIELDS = ("title", "author", "editorial", "category", "price", "stock")
+SORT_FIELDS = ("title", "author", "editorial", "category", "price", "stock", "observaciones")
 SORT_DIRS = ("asc", "desc")
+
+# Mirrors ``seller_bucket`` in app.services.seller_split. Kept here (router
+# layer) so the API surface is self-describing and the 400 message lists the
+# exact values the client may pass.
+SELLER_BUCKETS = ("Juli", "Cande", "Juli y Cande")
 
 
 def _sort_expression(sort_by: str):
     """Map a sort_by value to a SQLAlchemy ordering expression.
 
-    Text columns are lower-cased so A-Z ordering is natural and matches the
-    existing case-insensitive filter conventions. Category orders by the
+    Text columns are lower-cased AND coalesced to "" so NULL rows sort
+    together with empty strings on both PostgreSQL and SQLite (NULLS FIRST /
+    NULLS LAST behavior diverges between engines). Category orders by the
     related category name via an explicit join.
     """
     if sort_by == "category":
         return func.lower(Category.name)
-    if sort_by in ("title", "author", "editorial"):
-        return func.lower(getattr(Book, sort_by))
+    if sort_by in ("title", "author", "editorial", "observaciones"):
+        return func.lower(func.coalesce(getattr(Book, sort_by), ""))
     return getattr(Book, sort_by)
 
 
@@ -83,11 +90,20 @@ async def list_books(
     stock_status: str | None = None,
     author: str | None = None,
     editorial: str | None = None,
+    seller: str | None = None,
     sort_by: str | None = None,
     sort_dir: str = "asc",
     page: int = 1,
     page_size: int = 100,
 ) -> list[BookRead]:
+    if seller is not None and seller not in SELLER_BUCKETS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Invalid seller: {seller!r}; expected one of "
+                f"{list(SELLER_BUCKETS)}"
+            ),
+        )
     if sort_by is not None and sort_by not in SORT_FIELDS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -134,6 +150,8 @@ async def list_books(
                 ),
             )
         query = query.where(condition)
+    if seller:
+        query = query.where(seller_filter_condition(seller))
 
     if sort_by == "category":
         query = query.join(Book.category)

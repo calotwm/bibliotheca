@@ -14,6 +14,17 @@ export const STOCK_FILTERS: { value: string; label: string }[] = [
   { value: STOCK_OUT, label: STOCK_LABELS[STOCK_OUT] },
 ];
 
+export const SELLER_JULI = "Juli";
+export const SELLER_CANDE = "Cande";
+export const SELLER_JOINT = "Juli y Cande";
+
+export const SELLER_FILTERS: { value: string; label: string }[] = [
+  { value: "", label: "Todas" },
+  { value: SELLER_JULI, label: SELLER_JULI },
+  { value: SELLER_CANDE, label: SELLER_CANDE },
+  { value: SELLER_JOINT, label: SELLER_JOINT },
+];
+
 export const BULK_ACTIONS: { value: string; label: string }[] = [
   { value: "stock_add", label: "Sumar stock" },
   { value: "stock_set", label: "Fijar stock" },

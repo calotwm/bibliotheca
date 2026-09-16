@@ -7,7 +7,7 @@ import { BookFormModal } from "../components/BookFormModal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
 import { PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "../components/icons";
-import { STOCK_FILTERS } from "../lib/constants";
+import { SELLER_FILTERS, STOCK_FILTERS } from "../lib/constants";
 import { formatARS, formatObservaciones } from "../lib/format";
 import type { Column } from "../components/DataTable";
 import type { Book, BookPayload } from "../lib/types";
@@ -20,17 +20,47 @@ const columns: Column<Book>[] = [
     header: "Título",
     sortable: true,
     sortKey: "title",
+    className: "w-32",
     render: (row) => <span className="font-medium">{row.title}</span>,
   },
-  { key: "author", header: "Autor", sortable: true, sortKey: "author", render: (row) => row.author },
-  { key: "editorial", header: "Editorial", sortable: true, sortKey: "editorial", render: (row) => row.editorial },
-  { key: "category_name", header: "Categoría", sortable: true, sortKey: "category", render: (row) => row.category_name ?? "—" },
-  { key: "price", header: "Precio", sortable: true, sortKey: "price", render: (row) => <span className="font-semibold">{formatARS(row.price)}</span> },
+  {
+    key: "author",
+    header: "Autor",
+    sortable: true,
+    sortKey: "author",
+    className: "w-32",
+    render: (row) => row.author,
+  },
+  {
+    key: "editorial",
+    header: "Editorial",
+    sortable: true,
+    sortKey: "editorial",
+    className: "w-32",
+    render: (row) => row.editorial,
+  },
+  {
+    key: "category_name",
+    header: "Categoría",
+    sortable: true,
+    sortKey: "category",
+    className: "w-28",
+    render: (row) => row.category_name ?? "—",
+  },
+  {
+    key: "price",
+    header: "Precio",
+    sortable: true,
+    sortKey: "price",
+    className: "w-24",
+    render: (row) => <span className="font-semibold">{formatARS(row.price)}</span>,
+  },
   {
     key: "stock",
     header: "Stock",
     sortable: true,
     sortKey: "stock",
+    className: "w-20",
     render: (row) =>
       row.stock === 0 ? (
         <span className="text-xs font-semibold text-red-700">Sin stock</span>
@@ -38,7 +68,14 @@ const columns: Column<Book>[] = [
         <span className="text-xs text-ink-soft">{row.stock}</span>
       ),
   },
-  { key: "observaciones", header: "Observaciones", render: (row) => formatObservaciones(row.observaciones) },
+  {
+    key: "observaciones",
+    header: "Observaciones",
+    sortable: true,
+    sortKey: "observaciones",
+    className: "w-48",
+    render: (row) => formatObservaciones(row.observaciones),
+  },
 ];
 
 interface RowActionsProps {
@@ -83,6 +120,7 @@ export function Inventario() {
   const [debouncedAuthor, setDebouncedAuthor] = useState("");
   const [editorial, setEditorial] = useState("");
   const [debouncedEditorial, setDebouncedEditorial] = useState("");
+  const [seller, setSeller] = useState("");
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -112,7 +150,18 @@ export function Inventario() {
   });
 
   const { data: books = [], isLoading, isError, error } = useQuery({
-    queryKey: ["books", debouncedTitle, categoryId, stockStatus, debouncedAuthor, debouncedEditorial, sortBy, sortDir, page],
+    queryKey: [
+      "books",
+      debouncedTitle,
+      categoryId,
+      stockStatus,
+      debouncedAuthor,
+      debouncedEditorial,
+      seller,
+      sortBy,
+      sortDir,
+      page,
+    ],
     queryFn: () =>
       booksApi.listBooks({
         title: debouncedTitle || undefined,
@@ -120,6 +169,7 @@ export function Inventario() {
         stock_status: stockStatus || null,
         author: debouncedAuthor || null,
         editorial: debouncedEditorial || null,
+        seller: seller || null,
         sort_by: sortBy || null,
         sort_dir: sortDir || null,
         page,
@@ -186,7 +236,7 @@ export function Inventario() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="block">
           <label htmlFor="inv-title" className="text-sm font-medium">
             Título
@@ -260,6 +310,26 @@ export function Inventario() {
           </select>
         </div>
         <div className="block">
+          <label htmlFor="inv-seller" className="text-sm font-medium">
+            Vendedora
+          </label>
+          <select
+            id="inv-seller"
+            value={seller}
+            onChange={(event) => {
+              setSeller(event.target.value);
+              resetPageOnFilterChange();
+            }}
+            className={inputClass}
+          >
+            {SELLER_FILTERS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="block">
           <label htmlFor="inv-stock" className="text-sm font-medium">
             Stock
           </label>
@@ -295,6 +365,7 @@ export function Inventario() {
               {
                 key: "actions",
                 header: "",
+                className: "w-20",
                 render: (row) => (
                   <RowActions
                     row={row}
@@ -314,6 +385,8 @@ export function Inventario() {
             sortBy={sortBy}
             sortDir={sortDir}
             onSort={handleSort}
+            fixedLayout
+            wrapText
           />
           {books.length === page * PAGE_SIZE && (
             <div className="text-center">

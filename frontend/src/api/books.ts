@@ -8,6 +8,7 @@ export interface BookFilters {
   stock_status?: string | null;
   author?: string | null;
   editorial?: string | null;
+  seller?: string | null;
   sort_by?: string | null;
   sort_dir?: string | null;
   page?: number;
@@ -22,6 +23,7 @@ export function listBooks(filters: BookFilters = {}): Promise<Book[]> {
   if (filters.stock_status) params.set("stock_status", filters.stock_status);
   if (filters.author) params.set("author", filters.author);
   if (filters.editorial) params.set("editorial", filters.editorial);
+  if (filters.seller) params.set("seller", filters.seller);
   if (filters.sort_by) params.set("sort_by", filters.sort_by);
   if (filters.sort_dir) params.set("sort_dir", filters.sort_dir);
   if (filters.page) params.set("page", String(filters.page));
