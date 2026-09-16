@@ -81,4 +81,16 @@ describe("DataTable", () => {
       expect(cell.className).toContain("break-words");
     }
   });
+
+  it("honours minWidthClass so consumers can lower the table's shrink floor", () => {
+    const { container } = render(
+      <DataTable columns={columns} rows={rows} minWidthClass="min-w-[520px]" />
+    );
+    expect(container.querySelector("table")?.className).toBe(
+      "w-full min-w-[520px] text-left text-sm"
+    );
+    expect(container.querySelector("table")?.className).not.toContain(
+      "min-w-[640px]"
+    );
+  });
 });

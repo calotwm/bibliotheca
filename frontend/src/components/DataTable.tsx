@@ -18,10 +18,13 @@ interface DataTableProps<T> {
   sortDir?: "asc" | "desc";
   onSort?: (key: string) => void;
   /**
-   * When true, the rendered <table> uses `table-fixed` and the column
-   * `className` propagates to the header `<th>` so per-column widths work
-   * (otherwise widths can collapse under a `min-w-[640px]` outer wrapper).
-   * Defaults to `false` so existing consumers render byte-identical DOM.
+   * When true the rendered <table> uses `table-fixed`, which makes per-column
+   * widths authoritative and guarantees the table never grows past its
+   * container. Column widths must then be RELATIVE (e.g. `w-[20%]`): a fixed
+   * rem width gives the table a hard floor, so it stops adapting when the
+   * viewport narrows and the `overflow-x-auto` wrapper scrolls the columns
+   * off-screen instead of reflowing them. Defaults to `false` so existing
+   * consumers are unaffected.
    */
   fixedLayout?: boolean;
   /**
@@ -31,6 +34,12 @@ interface DataTableProps<T> {
    * for `Precios` and other consumers.
    */
   wrapText?: boolean;
+  /**
+   * Class controlling the table's minimum width. The historical default is
+   * `min-w-[640px]`; pass a smaller floor (e.g. `min-w-[520px]`) when the
+   * table must keep adapting as the viewport narrows.
+   */
+  minWidthClass?: string;
 }
 
 export function DataTable<T>({
@@ -43,14 +52,14 @@ export function DataTable<T>({
   onSort,
   fixedLayout = false,
   wrapText = false,
+  minWidthClass = "min-w-[640px]",
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return <p className="py-6 text-center text-sm text-ink-soft">{emptyMessage}</p>;
   }
-  const wrapTdClasses = wrapText ? "whitespace-normal break-words " : "";
-  const tableClass = fixedLayout
-    ? "w-full min-w-[640px] text-left text-sm table-fixed"
-    : "w-full min-w-[640px] text-left text-sm";
+  const wrapTdClasses = wrapText ? "whitespace-normal break-words align-top " : "";
+  const baseTableClass = `w-full ${minWidthClass} text-left text-sm`;
+  const tableClass = fixedLayout ? `${baseTableClass} table-fixed` : baseTableClass;
   return (
     <div className="overflow-x-auto rounded-sm border border-navy/10 bg-cream">
       <table className={tableClass}>
@@ -62,7 +71,7 @@ export function DataTable<T>({
               return (
                 <th
                   key={column.key}
-                  className={`px-3 py-2.5 font-medium ${column.className ?? ""}`}
+                  className={`px-3 py-2.5 font-medium ${wrapText ? "align-top " : ""}${column.className ?? ""}`}
                 >
                   {column.sortable && onSort ? (
                     <button

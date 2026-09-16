@@ -319,4 +319,24 @@ describe("Inventario", () => {
     expect(firstCell?.className ?? "").toContain("whitespace-normal");
     expect(firstCell?.className ?? "").toContain("break-words");
   });
+
+  it("keeps the table shrinkable so columns adapt instead of being cut off", async () => {
+    vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
+    renderPage();
+    const table = await screen.findByRole("table");
+    // The 640px floor made the table overflow and scroll sideways instead of
+    // adapting when the viewport narrowed. Inventario asks for a lower floor.
+    expect(table.className).not.toContain("min-w-[640px]");
+    expect(table.className).toContain("min-w-[520px]");
+    // Under table-fixed every column width must be RELATIVE. A fixed rem width
+    // (w-32, w-48, ...) is authoritative and gives the table a hard minimum,
+    // which is exactly what reintroduced the horizontal overflow.
+    const headers = Array.from(document.querySelectorAll("th"));
+    expect(headers).toHaveLength(8);
+    for (const header of headers) {
+      expect(header.className).not.toMatch(/\bw-\d+\b/);
+      expect(header.className).not.toMatch(/\bw-\[[0-9.]+rem\]/);
+      expect(header.className).toMatch(/\bw-\[[0-9.]+%\]/);
+    }
+  });
 });

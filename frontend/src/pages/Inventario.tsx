@@ -20,7 +20,7 @@ const columns: Column<Book>[] = [
     header: "Título",
     sortable: true,
     sortKey: "title",
-    className: "w-32",
+    className: "w-[19%]",
     render: (row) => <span className="font-medium">{row.title}</span>,
   },
   {
@@ -28,7 +28,7 @@ const columns: Column<Book>[] = [
     header: "Autor",
     sortable: true,
     sortKey: "author",
-    className: "w-32",
+    className: "w-[14%]",
     render: (row) => row.author,
   },
   {
@@ -36,7 +36,7 @@ const columns: Column<Book>[] = [
     header: "Editorial",
     sortable: true,
     sortKey: "editorial",
-    className: "w-32",
+    className: "w-[14%]",
     render: (row) => row.editorial,
   },
   {
@@ -44,7 +44,7 @@ const columns: Column<Book>[] = [
     header: "Categoría",
     sortable: true,
     sortKey: "category",
-    className: "w-28",
+    className: "w-[10%]",
     render: (row) => row.category_name ?? "—",
   },
   {
@@ -52,7 +52,7 @@ const columns: Column<Book>[] = [
     header: "Precio",
     sortable: true,
     sortKey: "price",
-    className: "w-24",
+    className: "w-[11%]",
     render: (row) => <span className="font-semibold">{formatARS(row.price)}</span>,
   },
   {
@@ -60,7 +60,7 @@ const columns: Column<Book>[] = [
     header: "Stock",
     sortable: true,
     sortKey: "stock",
-    className: "w-20",
+    className: "w-[7%]",
     render: (row) =>
       row.stock === 0 ? (
         <span className="text-xs font-semibold text-red-700">Sin stock</span>
@@ -73,7 +73,7 @@ const columns: Column<Book>[] = [
     header: "Observaciones",
     sortable: true,
     sortKey: "observaciones",
-    className: "w-48",
+    className: "w-[15%]",
     render: (row) => formatObservaciones(row.observaciones),
   },
 ];
@@ -86,7 +86,7 @@ interface RowActionsProps {
 
 function RowActions({ row, onEdit, onDelete }: RowActionsProps) {
   return (
-    <div className="flex justify-end gap-1">
+    <div className="flex flex-wrap justify-end gap-1">
       <button
         type="button"
         onClick={() => onEdit(row)}
@@ -365,7 +365,7 @@ export function Inventario() {
               {
                 key: "actions",
                 header: "",
-                className: "w-20",
+                className: "w-[10%]",
                 render: (row) => (
                   <RowActions
                     row={row}
@@ -387,6 +387,7 @@ export function Inventario() {
             onSort={handleSort}
             fixedLayout
             wrapText
+            minWidthClass="min-w-[520px]"
           />
           {books.length === page * PAGE_SIZE && (
             <div className="text-center">
