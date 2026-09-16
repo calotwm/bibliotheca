@@ -33,14 +33,16 @@ interface DataTableProps<T> {
    * `overflow-wrap: anywhere`). `anywhere` matters because it lowers the
    * column's min-content width: without it a single unbreakable run such as
    * "a@x.com;b@y.com;c@z.com" still demands its full width and pushes the
-   * rest of the table off-screen. Defaults to `false` to preserve today's
-   * behaviour for consumers that have not opted in.
+   * rest of the table off-screen. Wrapping is the DEFAULT because it is the
+   * only behaviour that stops a long value from dictating the table width;
+   * pass `false` for the rare table that must not wrap.
    */
   wrapText?: boolean;
   /**
-   * Class controlling the table's minimum width. The historical default is
-   * `min-w-[640px]`; pass a smaller floor (e.g. `min-w-[520px]`) when the
-   * table must keep adapting as the viewport narrows.
+   * Class controlling the table's minimum width. Defaults to `min-w-[520px]`,
+   * low enough that the table keeps adapting as the viewport narrows instead
+   * of scrolling its right-hand columns out of view. Raise it for a table that
+   * genuinely needs a wider floor.
    */
   minWidthClass?: string;
 }
@@ -54,8 +56,8 @@ export function DataTable<T>({
   sortDir,
   onSort,
   fixedLayout = false,
-  wrapText = false,
-  minWidthClass = "min-w-[640px]",
+  wrapText = true,
+  minWidthClass = "min-w-[520px]",
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return <p className="py-6 text-center text-sm text-ink-soft">{emptyMessage}</p>;

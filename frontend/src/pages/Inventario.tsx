@@ -386,8 +386,6 @@ export function Inventario() {
             sortDir={sortDir}
             onSort={handleSort}
             fixedLayout
-            wrapText
-            minWidthClass="min-w-[520px]"
           />
           {books.length === page * PAGE_SIZE && (
             <div className="text-center">

@@ -234,8 +234,6 @@ export function Proveedores() {
           getRowKey={(row) => row.id}
           emptyMessage="No hay distribuidoras registradas."
           fixedLayout
-          wrapText
-          minWidthClass="min-w-[520px]"
         />
       )}
 

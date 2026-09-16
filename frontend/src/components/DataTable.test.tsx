@@ -28,21 +28,21 @@ function getTable(): HTMLTableElement {
 }
 
 describe("DataTable", () => {
-  it("renders identical DOM to today when no opt-in props are passed", () => {
+  it("wraps long cell text by default so no cell can widen the table", () => {
     const { container } = render(<DataTable columns={columns} rows={rows} />);
     const table = getTable();
-    // No table-fixed class on the underlying <table>.
+    // fixedLayout stays opt-in.
     expect(table.className).not.toContain("table-fixed");
-    // Body cells must NOT include wrapping classes when wrapText is off.
-    const tbody = within(table).getAllByRole("cell");
-    for (const cell of tbody) {
-      expect(cell.className).not.toContain("whitespace-normal");
-      expect(cell.className).not.toContain("[overflow-wrap:anywhere]");
+    // Wrapping is the default: a long unbreakable value must never dictate the
+    // column width and push the rest of the table off-screen.
+    const cells = within(table).getAllByRole("cell");
+    for (const cell of cells) {
+      expect(cell.className).toContain("whitespace-normal");
+      expect(cell.className).toContain("[overflow-wrap:anywhere]");
     }
-    // Sanity: the <table> baseline matches today exactly so an accidental
-    // future change to the baseline is caught.
+    // The default shrink floor is low enough to keep adapting on a laptop.
     expect(container.querySelector("table")?.className).toBe(
-      "w-full min-w-[640px] text-left text-sm"
+      "w-full min-w-[520px] text-left text-sm"
     );
   });
 
@@ -70,27 +70,21 @@ describe("DataTable", () => {
     expect(nameHeader.className).not.toContain("null");
   });
 
-  it("adds wrapping classes to body cells when wrapText is true", () => {
-    render(<DataTable columns={columns} rows={rows} wrapText />);
-    const table = getTable();
-    // table-fixed is NOT applied because fixedLayout is false.
-    expect(table.className).not.toContain("table-fixed");
-    const cells = within(table).getAllByRole("cell");
+  it("lets a consumer opt out of wrapping when it truly wants no-wrap cells", () => {
+    render(<DataTable columns={columns} rows={rows} wrapText={false} />);
+    const cells = within(getTable()).getAllByRole("cell");
     for (const cell of cells) {
-      expect(cell.className).toContain("whitespace-normal");
-      expect(cell.className).toContain("[overflow-wrap:anywhere]");
+      expect(cell.className).not.toContain("whitespace-normal");
+      expect(cell.className).not.toContain("[overflow-wrap:anywhere]");
     }
   });
 
-  it("honours minWidthClass so consumers can lower the table's shrink floor", () => {
+  it("honours minWidthClass so a consumer can override the shrink floor", () => {
     const { container } = render(
-      <DataTable columns={columns} rows={rows} minWidthClass="min-w-[520px]" />
+      <DataTable columns={columns} rows={rows} minWidthClass="min-w-[700px]" />
     );
     expect(container.querySelector("table")?.className).toBe(
-      "w-full min-w-[520px] text-left text-sm"
-    );
-    expect(container.querySelector("table")?.className).not.toContain(
-      "min-w-[640px]"
+      "w-full min-w-[700px] text-left text-sm"
     );
   });
 });

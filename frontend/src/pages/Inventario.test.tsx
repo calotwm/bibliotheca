@@ -309,7 +309,7 @@ describe("Inventario", () => {
     });
   });
 
-  it("renders DataTable with fixedLayout and wrapText enabled", async () => {
+  it("renders the table with a fixed layout and wrapped cells", async () => {
     vi.mocked(booksApi.listBooks).mockResolvedValue([sampleBook]);
     renderPage();
     const table = await screen.findByRole("table");
