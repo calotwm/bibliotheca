@@ -142,8 +142,8 @@ describe("App routing", () => {
     await user.click(screen.getByText("Ventas"));
     expect(await screen.findByRole("heading", { name: "Ventas (POS)" })).toBeInTheDocument();
 
-    await user.click(screen.getByText("Proveedores"));
-    expect(await screen.findByRole("heading", { name: "Proveedores" })).toBeInTheDocument();
+    await user.click(screen.getByText("Distribuidoras"));
+    expect(await screen.findByRole("heading", { name: "Distribuidoras" })).toBeInTheDocument();
 
     await user.click(screen.getByText("Reportes"));
     expect(await screen.findByRole("heading", { name: "Reportes" })).toBeInTheDocument();

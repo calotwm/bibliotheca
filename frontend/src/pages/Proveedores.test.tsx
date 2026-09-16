@@ -71,13 +71,13 @@ describe("Proveedores", () => {
   it("includes sale_condition, notes, and discount in the create payload and excludes editorials", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(screen.getByRole("button", { name: "Nuevo proveedor" }));
+    await user.click(screen.getByRole("button", { name: "Nueva distribuidora" }));
 
     await user.type(screen.getByLabelText(/Nombre/), "Nuevo Distribuidor");
     await user.type(screen.getByLabelText(/DTO/), "30%");
     await user.type(screen.getByLabelText(/Condición de venta/), "Contado");
     await user.type(screen.getByLabelText(/Notas/), "Entrega los jueves");
-    await user.click(screen.getByRole("button", { name: "Crear proveedor" }));
+    await user.click(screen.getByRole("button", { name: "Crear distribuidora" }));
 
     await waitFor(() => {
       const payload = vi.mocked(suppliersApi.createSupplier).mock.calls[0][0] as unknown as Record<string, unknown>;

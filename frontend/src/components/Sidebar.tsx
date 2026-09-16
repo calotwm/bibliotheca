@@ -29,7 +29,7 @@ const NAV_ITEMS: NavEntry[] = [
   { to: "/", label: "Inicio", icon: HomeIcon, end: true },
   { to: "/inventario", label: "Inventario", icon: BookIcon },
   { to: "/ventas", label: "Ventas", icon: CartIcon },
-  { to: "/proveedores", label: "Proveedores", icon: UsersIcon },
+  { to: "/proveedores", label: "Distribuidoras", icon: UsersIcon },
   { to: "/reportes", label: "Reportes", icon: ChartIcon },
   { to: "/importar", label: "Importar Excel", icon: UploadIcon },
   { to: "/precios", label: "Precios", icon: TagIcon },

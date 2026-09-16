@@ -51,7 +51,7 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
     "mt-1 min-h-11 w-full rounded-sm border border-navy/20 bg-paper px-3 py-2 text-sm outline-none focus:border-navy";
 
   return (
-    <Modal title={initial ? "Editar proveedor" : "Nuevo proveedor"} onClose={onCancel}>
+    <Modal title={initial ? "Editar distribuidora" : "Nueva distribuidora"} onClose={onCancel}>
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate>
         <label className="block sm:col-span-2">
           <span className="text-sm font-medium">Nombre *</span>
@@ -103,7 +103,7 @@ function SupplierForm({ initial, submitting, error, onSave, onCancel }: Supplier
             disabled={submitting}
             className="min-h-10 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-60"
           >
-            {submitting ? "Guardando…" : initial ? "Guardar cambios" : "Crear proveedor"}
+            {submitting ? "Guardando…" : initial ? "Guardar cambios" : "Crear distribuidora"}
           </button>
         </div>
       </form>
@@ -135,7 +135,7 @@ export function Proveedores() {
       setFormError(null);
     },
     onError: (err: unknown) => {
-      setFormError(err instanceof Error ? err.message : "No se pudo guardar el proveedor.");
+      setFormError(err instanceof Error ? err.message : "No se pudo guardar la distribuidora.");
     },
   });
 
@@ -200,14 +200,14 @@ export function Proveedores() {
           className="inline-flex min-h-10 items-center gap-1 rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light"
         >
           <PlusIcon className="h-4 w-4" />
-          Nuevo proveedor
+          Nueva distribuidora
         </button>
       </div>
 
       {isLoading && <p className="text-sm text-ink-soft">Cargando…</p>}
       {isError && (
         <p className="text-sm text-red-700">
-          {error instanceof Error ? error.message : "No se pudieron cargar los proveedores."}
+          {error instanceof Error ? error.message : "No se pudieron cargar las distribuidoras."}
         </p>
       )}
       {!isLoading && !isError && (
@@ -215,7 +215,7 @@ export function Proveedores() {
           columns={columns}
           rows={suppliers}
           getRowKey={(row) => row.id}
-          emptyMessage="No hay proveedores registrados."
+          emptyMessage="No hay distribuidoras registradas."
         />
       )}
 
@@ -235,8 +235,8 @@ export function Proveedores() {
 
       {deleting && (
         <ConfirmDialog
-          title="Eliminar proveedor"
-          message={`¿Desea eliminar el proveedor "${deleting.name}"? Esta acción no se puede deshacer.`}
+          title="Eliminar distribuidora"
+          message={`¿Desea eliminar la distribuidora "${deleting.name}"? Esta acción no se puede deshacer.`}
           confirmLabel="Eliminar"
           cancelLabel="Cancelar"
           danger

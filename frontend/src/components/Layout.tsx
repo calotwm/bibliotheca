@@ -8,7 +8,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/": "Inicio",
   "/inventario": "Inventario",
   "/ventas": "Ventas (POS)",
-  "/proveedores": "Proveedores",
+  "/proveedores": "Distribuidoras",
   "/reportes": "Reportes",
   "/importar": "Importar Excel",
   "/precios": "Precios",

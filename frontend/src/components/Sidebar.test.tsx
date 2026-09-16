@@ -28,7 +28,7 @@ describe("Sidebar", () => {
     expect(screen.getByText("Inicio")).toBeInTheDocument();
     expect(screen.getByText("Inventario")).toBeInTheDocument();
     expect(screen.getByText("Ventas")).toBeInTheDocument();
-    expect(screen.getByText("Proveedores")).toBeInTheDocument();
+    expect(screen.getByText("Distribuidoras")).toBeInTheDocument();
     expect(screen.getByText("Reportes")).toBeInTheDocument();
     expect(screen.getByText("Importar Excel")).toBeInTheDocument();
     expect(screen.getByText("Precios")).toBeInTheDocument();
