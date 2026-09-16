@@ -52,3 +52,16 @@ export function formatObservaciones(obs: string | null | undefined): string {
   const trimmed = obs?.trim();
   return trimmed ? trimmed : "Juli";
 }
+
+// A supplier's email field can hold several addresses separated by ";"
+// (e.g. "buenoslibros@corregidor.com;norberto@corregidor.com"). Rendered as
+// one string that is a single 70+ character token with no spaces, which makes
+// the column demand its full width and shove the rest of the table off-screen.
+// Splitting on ";" lets the table show one address per line instead.
+export function splitEmailList(value: string | null | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}

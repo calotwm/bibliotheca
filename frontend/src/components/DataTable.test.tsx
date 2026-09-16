@@ -37,7 +37,7 @@ describe("DataTable", () => {
     const tbody = within(table).getAllByRole("cell");
     for (const cell of tbody) {
       expect(cell.className).not.toContain("whitespace-normal");
-      expect(cell.className).not.toContain("break-words");
+      expect(cell.className).not.toContain("[overflow-wrap:anywhere]");
     }
     // Sanity: the <table> baseline matches today exactly so an accidental
     // future change to the baseline is caught.
@@ -78,7 +78,7 @@ describe("DataTable", () => {
     const cells = within(table).getAllByRole("cell");
     for (const cell of cells) {
       expect(cell.className).toContain("whitespace-normal");
-      expect(cell.className).toContain("break-words");
+      expect(cell.className).toContain("[overflow-wrap:anywhere]");
     }
   });
 

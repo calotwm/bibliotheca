@@ -6,6 +6,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { PencilIcon, PlusIcon, TrashIcon } from "../components/icons";
+import { splitEmailList } from "../lib/format";
 import type { Column } from "../components/DataTable";
 import type { Supplier, SupplierPayload } from "../lib/types";
 
@@ -148,18 +149,34 @@ export function Proveedores() {
   });
 
   const columns: Column<Supplier>[] = [
-    { key: "name", header: "Nombre", render: (row) => <span className="font-medium">{row.name}</span> },
-    { key: "contact_name", header: "Contacto", render: (row) => row.contact_name ?? "—" },
-    { key: "phone", header: "Teléfono", render: (row) => row.phone ?? "—" },
-    { key: "email", header: "Email", render: (row) => row.email ?? "—" },
-    { key: "sale_condition", header: "Cond. venta", render: (row) => row.sale_condition ?? "—" },
-    { key: "notes", header: "Notas", render: (row) => row.notes ?? "—" },
-    { key: "discount", header: "DTO", render: (row) => row.discount ?? "—" },
+    { key: "name", header: "Nombre", className: "w-[16%]", render: (row) => <span className="font-medium">{row.name}</span> },
+    { key: "contact_name", header: "Contacto", className: "w-[11%]", render: (row) => row.contact_name ?? "—" },
+    { key: "phone", header: "Teléfono", className: "w-[11%]", render: (row) => row.phone ?? "—" },
+    {
+      key: "email",
+      header: "Email",
+      className: "w-[20%]",
+      render: (row) => {
+        const emails = splitEmailList(row.email);
+        if (emails.length === 0) return "—";
+        return (
+          <div className="space-y-0.5">
+            {emails.map((address) => (
+              <div key={address}>{address}</div>
+            ))}
+          </div>
+        );
+      },
+    },
+    { key: "sale_condition", header: "Cond. venta", className: "w-[12%]", render: (row) => row.sale_condition ?? "—" },
+    { key: "notes", header: "Notas", className: "w-[14%]", render: (row) => row.notes ?? "—" },
+    { key: "discount", header: "DTO", className: "w-[6%]", render: (row) => row.discount ?? "—" },
     {
       key: "actions",
       header: "",
+      className: "w-[10%]",
       render: (row) => (
-        <div className="flex justify-end gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
           <button
             type="button"
             onClick={() => {
@@ -216,6 +233,9 @@ export function Proveedores() {
           rows={suppliers}
           getRowKey={(row) => row.id}
           emptyMessage="No hay distribuidoras registradas."
+          fixedLayout
+          wrapText
+          minWidthClass="min-w-[520px]"
         />
       )}
 

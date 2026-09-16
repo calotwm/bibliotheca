@@ -28,10 +28,13 @@ interface DataTableProps<T> {
    */
   fixedLayout?: boolean;
   /**
-   * When true, body cells use `whitespace-normal break-words` so long free-
-   * text content (e.g. `observaciones`) flows onto extra lines instead of
-   * widening the column. Defaults to `false` to preserve today's behavior
-   * for `Precios` and other consumers.
+   * When true, body cells wrap long text onto extra lines and never force the
+   * column wider than its share (`whitespace-normal`, top-aligned, plus
+   * `overflow-wrap: anywhere`). `anywhere` matters because it lowers the
+   * column's min-content width: without it a single unbreakable run such as
+   * "a@x.com;b@y.com;c@z.com" still demands its full width and pushes the
+   * rest of the table off-screen. Defaults to `false` to preserve today's
+   * behaviour for consumers that have not opted in.
    */
   wrapText?: boolean;
   /**
@@ -57,7 +60,9 @@ export function DataTable<T>({
   if (rows.length === 0) {
     return <p className="py-6 text-center text-sm text-ink-soft">{emptyMessage}</p>;
   }
-  const wrapTdClasses = wrapText ? "whitespace-normal break-words align-top " : "";
+  const wrapTdClasses = wrapText
+    ? "whitespace-normal [overflow-wrap:anywhere] align-top "
+    : "";
   const baseTableClass = `w-full ${minWidthClass} text-left text-sm`;
   const tableClass = fixedLayout ? `${baseTableClass} table-fixed` : baseTableClass;
   return (

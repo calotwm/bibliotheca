@@ -317,7 +317,7 @@ describe("Inventario", () => {
     // Long observaciones text triggers wrapping on body cells.
     const firstCell = table.querySelector("td");
     expect(firstCell?.className ?? "").toContain("whitespace-normal");
-    expect(firstCell?.className ?? "").toContain("break-words");
+    expect(firstCell?.className ?? "").toContain("[overflow-wrap:anywhere]");
   });
 
   it("keeps the table shrinkable so columns adapt instead of being cut off", async () => {

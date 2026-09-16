@@ -5,6 +5,7 @@ import {
   formatDateTime,
   formatObservaciones,
   parsePrice,
+  splitEmailList,
 } from "./format";
 
 describe("parsePrice", () => {
@@ -75,5 +76,36 @@ describe("formatObservaciones", () => {
     expect(formatObservaciones("Cande")).toBe("Cande");
     expect(formatObservaciones("Juli y Cande")).toBe("Juli y Cande");
     expect(formatObservaciones("  Cande  ")).toBe("Cande");
+  });
+});
+
+describe("splitEmailList", () => {
+  it("splits semicolon-separated addresses into one entry each", () => {
+    expect(
+      splitEmailList(
+        "buenoslibros@corregidor.com;norberto@corregidor.com;andres@corregidor.com"
+      )
+    ).toEqual([
+      "buenoslibros@corregidor.com",
+      "norberto@corregidor.com",
+      "andres@corregidor.com",
+    ]);
+  });
+
+  it("trims surrounding whitespace and ignores empty segments", () => {
+    expect(splitEmailList(" a@x.com ; b@y.com ;")).toEqual(["a@x.com", "b@y.com"]);
+  });
+
+  it("keeps a single value with no semicolon intact", () => {
+    expect(splitEmailList("wpp: +54 9 11 5602-9957")).toEqual([
+      "wpp: +54 9 11 5602-9957",
+    ]);
+  });
+
+  it("returns an empty list for nullish or blank values", () => {
+    expect(splitEmailList(null)).toEqual([]);
+    expect(splitEmailList(undefined)).toEqual([]);
+    expect(splitEmailList("")).toEqual([]);
+    expect(splitEmailList("   ")).toEqual([]);
   });
 });

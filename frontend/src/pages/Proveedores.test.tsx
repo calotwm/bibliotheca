@@ -117,4 +117,51 @@ describe("Proveedores", () => {
       expect(payload).not.toHaveProperty("editorials");
     });
   });
+
+  it("stacks a multi-address email one address per line", async () => {
+    const joined =
+      "buenoslibros@corregidor.com;norberto@corregidor.com;andres@corregidor.com";
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([
+      { ...sampleSupplier, email: joined },
+    ]);
+    renderPage();
+
+    const first = await screen.findByText("buenoslibros@corregidor.com");
+    const cell = first.closest("td");
+    expect(cell).not.toBeNull();
+    // Each address is its own element inside the cell, stacked vertically.
+    const lines = Array.from(cell!.querySelectorAll("div > div")).map(
+      (line) => line.textContent
+    );
+    expect(lines).toEqual([
+      "buenoslibros@corregidor.com",
+      "norberto@corregidor.com",
+      "andres@corregidor.com",
+    ]);
+    // Regression guard: the ";"-joined string must never be a single text node.
+    // As one unbreakable 73-character token with no spaces it forces the email
+    // column to its full width and pushes the right-hand columns off-screen.
+    expect(screen.queryByText(joined, { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("keeps the distribuidoras table shrinkable with relative column widths", async () => {
+    renderPage();
+    const table = await screen.findByRole("table");
+    expect(table.className).toContain("table-fixed");
+    expect(table.className).toContain("min-w-[520px]");
+    expect(table.className).not.toContain("min-w-[640px]");
+    // Every column width must be relative: a fixed rem width is authoritative
+    // under table-fixed and gives the table a hard floor, so shrinking the
+    // viewport scrolls the right-hand columns out of view instead of
+    // reflowing them.
+    const headers = Array.from(document.querySelectorAll("th"));
+    expect(headers).toHaveLength(8);
+    for (const header of headers) {
+      expect(header.className).toMatch(/\bw-\[[0-9.]+%\]/);
+    }
+    // Cells must be allowed to break anywhere, so an unbreakable run can never
+    // dictate the column width.
+    const firstCell = table.querySelector("td");
+    expect(firstCell?.className ?? "").toContain("[overflow-wrap:anywhere]");
+  });
 });
