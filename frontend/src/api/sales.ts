@@ -16,6 +16,10 @@ export function updateSale(saleId: number, payload: SaleUpdatePayload): Promise<
   return apiFetch<Sale>(`/sales/${saleId}`, { method: "PATCH", body: payload });
 }
 
+export function deleteSale(saleId: number): Promise<void> {
+  return apiFetch<void>(`/sales/${saleId}`, { method: "DELETE" });
+}
+
 export function listSales(filters: SaleFilters = {}): Promise<SaleListItem[]> {
   const params = new URLSearchParams();
   if (filters.start_date) params.set("start_date", filters.start_date);

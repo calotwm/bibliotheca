@@ -112,6 +112,7 @@ async def create_sale(
                 quantity=item.quantity,
                 unit_price=price,
                 subtotal=subtotal,
+                observaciones=book.observaciones,
             )
         )
 

@@ -61,6 +61,7 @@ export interface SaleItem {
   quantity: number;
   unit_price: string;
   subtotal: string;
+  observaciones: string | null;
 }
 
 export interface Sale {

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError } from "../api/client";
 import * as reportsApi from "../api/reports";
-import { updateSale } from "../api/sales";
+import { deleteSale, updateSale } from "../api/sales";
 import { DataTable } from "../components/DataTable";
 import { formatARS, formatDate, formatObservaciones } from "../lib/format";
 import { defaultSharesFromObservaciones, sellerLabelFromShares, timeOfDay } from "../lib/shares";
@@ -73,6 +73,7 @@ function salesDetailColumns(
     {
       key: "actions",
       header: "Acciones",
+      className: "!align-middle !whitespace-nowrap",
       render: (row) => (
         <button
           type="button"
@@ -140,6 +141,36 @@ export function Reportes() {
       );
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (saleId: number) => deleteSale(saleId),
+    onSuccess: () => {
+      setEditingSale(null);
+      void salesDetailQuery.refetch();
+      void earningsQuery.refetch();
+      void queryClient.invalidateQueries({ queryKey: ["reports-sales"] });
+    },
+    onError: (err: unknown) => {
+      setEditError(
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : "No se pudo eliminar la venta."
+      );
+    },
+  });
+
+  function handleEditDelete() {
+    if (!editingSale) return;
+    setEditError(null);
+    if (
+      !window.confirm(
+        `¿Eliminar la venta #${editingSale.sale_number}? Esta acción no se puede deshacer.`
+      )
+    ) {
+      return;
+    }
+    deleteMutation.mutate(editingSale.sale_id);
+  }
 
   function openEditModal(row: SalesDetailRow) {
     setEditingSale(row);
@@ -566,22 +597,32 @@ export function Reportes() {
                 </p>
               )}
             </div>
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-5 flex justify-between gap-2">
               <button
                 type="button"
-                onClick={() => setEditingSale(null)}
-                className="rounded-sm border border-navy/20 px-4 py-2 text-sm font-medium text-navy hover:bg-navy/5"
+                onClick={handleEditDelete}
+                disabled={deleteMutation.isPending}
+                className="rounded-sm border border-red-700/30 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-700/5 disabled:opacity-50"
               >
-                Cancelar
+                {deleteMutation.isPending ? "Eliminando…" : "Eliminar venta"}
               </button>
-              <button
-                type="button"
-                onClick={handleEditSave}
-                disabled={editMutation.isPending}
-                className="rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
-              >
-                {editMutation.isPending ? "Guardando…" : "Guardar"}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingSale(null)}
+                  className="rounded-sm border border-navy/20 px-4 py-2 text-sm font-medium text-navy hover:bg-navy/5"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEditSave}
+                  disabled={editMutation.isPending}
+                  className="rounded-sm bg-navy px-4 py-2 text-sm font-semibold text-cream hover:bg-navy-light disabled:opacity-50"
+                >
+                  {editMutation.isPending ? "Guardando…" : "Guardar"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

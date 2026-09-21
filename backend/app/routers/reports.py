@@ -194,7 +194,7 @@ async def sales_detail(
                 SaleItem.quantity,
                 SaleItem.subtotal,
                 Book.stock,
-                Sale.observaciones,
+                func.coalesce(SaleItem.observaciones, Book.observaciones),
                 Sale.juli_share,
                 Sale.cande_share,
             )

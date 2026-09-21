@@ -39,6 +39,7 @@ def _item_to_read(item: SaleItem) -> SaleItemRead:
         quantity=item.quantity,
         unit_price=item.unit_price,
         subtotal=item.subtotal,
+        observaciones=item.observaciones,
     )
 
 
@@ -210,6 +211,47 @@ async def update_sale(
         )
     await session.commit()
     return _sale_to_read(sale)
+
+
+@router.delete("/{sale_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(_settings.rate_limit_api)
+async def delete_sale(
+    request: Request,
+    sale_id: int,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_user)],
+) -> Response:
+    """Delete a sale and restore stock for its items (correction, unlike ``/reset``)."""
+    sale = (
+        await session.execute(
+            select(Sale)
+            .options(selectinload(Sale.items).selectinload(SaleItem.book))
+            .where(Sale.id == sale_id)
+        )
+    ).scalar_one_or_none()
+    if sale is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found"
+        )
+
+    for item in sale.items:
+        if item.book is not None:
+            item.book.stock += item.quantity
+
+    await log_audit(
+        session,
+        user_id=user.id,
+        entity_type="sale",
+        entity_id=sale.id,
+        action="delete",
+        changes={
+            "sale_number": sale.sale_number,
+            "total": str(sale.total),
+        },
+    )
+    await session.delete(sale)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{sale_id}", response_model=SaleRead)

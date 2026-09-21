@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 class SaleItemCreate(BaseModel):
     book_id: int
     quantity: int = Field(ge=1)
+    observaciones: str | None = Field(default=None, max_length=200)
 
 
 class SaleCreate(BaseModel):
@@ -28,6 +29,7 @@ class SaleItemRead(BaseModel):
     quantity: int
     unit_price: Decimal
     subtotal: Decimal
+    observaciones: str | None = None
 
 
 class SaleUpdate(BaseModel):

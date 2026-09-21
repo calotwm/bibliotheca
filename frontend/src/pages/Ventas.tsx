@@ -43,7 +43,7 @@ export function Ventas() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
-  const [cart, setCart] = useState<Record<number, number>>({});
+  const [cart, setCart] = useState<Record<number, CartLine>>({});
   const [paymentMethod, setPaymentMethod] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerCuit, setCustomerCuit] = useState("");
@@ -61,19 +61,7 @@ export function Ventas() {
       }),
   });
 
-  const bookById = useMemo(() => {
-    const map = new Map<number, Book>();
-    for (const book of books) map.set(book.id, book);
-    return map;
-  }, [books]);
-
-  const lines: CartLine[] = useMemo(
-    () =>
-      Object.entries(cart)
-        .map(([id, qty]) => ({ book: bookById.get(Number(id)), qty }))
-        .filter((line): line is CartLine => line.book !== undefined),
-    [cart, bookById]
-  );
+  const lines: CartLine[] = useMemo(() => Object.values(cart), [cart]);
 
   const total = useMemo(
     () => lines.reduce((sum, line) => sum + parsePrice(line.book.price) * line.qty, 0),
@@ -91,24 +79,24 @@ export function Ventas() {
 
   function addToCart(book: Book) {
     setError(null);
-    const current = cart[book.id] ?? 0;
+    const current = cart[book.id]?.qty ?? 0;
     if (current >= book.stock) return;
-    setCart((prev) => ({ ...prev, [book.id]: current + 1 }));
+    setCart((prev) => ({ ...prev, [book.id]: { book, qty: current + 1 } }));
   }
 
   function changeQty(bookId: number, delta: number) {
     setError(null);
     setCart((prev) => {
-      const current = prev[bookId] ?? 0;
-      const book = bookById.get(bookId);
-      const next = current + delta;
+      const entry = prev[bookId];
+      if (!entry) return prev;
+      const next = entry.qty + delta;
       if (next <= 0) {
         const copy = { ...prev };
         delete copy[bookId];
         return copy;
       }
-      if (book && next > book.stock) return prev;
-      return { ...prev, [bookId]: next };
+      if (next > entry.book.stock) return prev;
+      return { ...prev, [bookId]: { book: entry.book, qty: next } };
     });
   }
 
@@ -285,7 +273,7 @@ export function Ventas() {
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {books.map((book) => {
-            const inCart = cart[book.id] ?? 0;
+            const inCart = cart[book.id]?.qty ?? 0;
             const soldOut = book.stock === 0 || inCart >= book.stock;
             return (
               <div
