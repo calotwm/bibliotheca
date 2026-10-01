@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Book, User
-from ..schemas.editorial import BulkPreviewRow
+from ..schemas.editorial import BulkPreviewRow, PriceGroup
 from .audit import log_audit
 
 STOCK_ACTIONS = frozenset({"stock_add", "stock_set"})
@@ -59,6 +59,7 @@ async def _matching_books(
     editorial: str | None,
     author: str | None,
     category_id: int | None,
+    price_equals: Decimal | None = None,
 ) -> list[Book]:
     query = select(Book).where(Book.is_active.is_(True))
     if editorial:
@@ -71,6 +72,8 @@ async def _matching_books(
         )
     if category_id is not None:
         query = query.where(Book.category_id == category_id)
+    if price_equals is not None:
+        query = query.where(Book.price == price_equals)
     query = query.order_by(Book.title)
     return list((await session.execute(query)).scalars().all())
 
@@ -81,13 +84,18 @@ async def preview_bulk(
     editorial: str | None,
     author: str | None = None,
     category_id: int | None,
+    price_equals: Decimal | None = None,
     action: str,
     amount: Decimal,
 ) -> list[BulkPreviewRow]:
     """Return the affected books with computed old -> new values (no writes)."""
     coerced = _validate_amount(action, amount)
     books = await _matching_books(
-        session, editorial=editorial, author=author, category_id=category_id
+        session,
+        editorial=editorial,
+        author=author,
+        category_id=category_id,
+        price_equals=price_equals,
     )
     field = _field_for(action)
     rows: list[BulkPreviewRow] = []
@@ -118,13 +126,18 @@ async def apply_bulk(
     editorial: str | None,
     author: str | None = None,
     category_id: int | None,
+    price_equals: Decimal | None = None,
     action: str,
     amount: Decimal,
 ) -> dict:
     """Apply the operation to every matching book in one transaction (caller commits)."""
     coerced = _validate_amount(action, amount)
     books = await _matching_books(
-        session, editorial=editorial, author=author, category_id=category_id
+        session,
+        editorial=editorial,
+        author=author,
+        category_id=category_id,
+        price_equals=price_equals,
     )
     field = _field_for(action)
     for book in books:
@@ -147,9 +160,22 @@ async def apply_bulk(
             "editorial": editorial,
             "author": author,
             "category_id": category_id,
+            "price_equals": str(price_equals) if price_equals is not None else None,
             "action": action,
             "amount": str(amount),
             "affected": affected,
         },
     )
     return {"affected": affected}
+
+
+async def price_groups(session: AsyncSession) -> list[PriceGroup]:
+    """Return every distinct current price among active books with its count."""
+    query = (
+        select(Book.price, func.count(Book.id))
+        .where(Book.is_active.is_(True))
+        .group_by(Book.price)
+        .order_by(Book.price.asc())
+    )
+    rows = (await session.execute(query)).all()
+    return [PriceGroup(price=price, count=count) for price, count in rows]

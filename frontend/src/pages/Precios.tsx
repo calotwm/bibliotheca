@@ -62,6 +62,7 @@ export function Precios() {
   const [editorial, setEditorial] = useState("");
   const [author, setAuthor] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [priceEquals, setPriceEquals] = useState("");
   const [operation, setOperation] = useState<PriceOperation>("price_set");
   const [amount, setAmount] = useState("");
   const [preview, setPreview] = useState<BulkPreview | null>(null);
@@ -90,6 +91,17 @@ export function Precios() {
     queryKey: ["books", "editorials"],
     queryFn: () => booksApi.listBooks({ page_size: 300 }),
   });
+
+  const { data: priceGroups = [] } = useQuery({
+    queryKey: ["price-groups"],
+    queryFn: () => importApi.listPriceGroups(),
+  });
+
+  useEffect(() => {
+    if (priceEquals && !priceGroups.some((group) => group.price === priceEquals)) {
+      setPriceEquals("");
+    }
+  }, [priceGroups, priceEquals]);
 
   const editorials = useMemo(() => {
     const unique = new Set<string>();
@@ -189,7 +201,7 @@ export function Precios() {
       setError("Proporcione editorial o autor, no ambos.");
       return null;
     }
-    if (!editorialTrimmed && !authorTrimmed) {
+    if (!editorialTrimmed && !authorTrimmed && !priceEquals) {
       setError("Proporcione editorial o autor.");
       return null;
     }
@@ -211,6 +223,7 @@ export function Precios() {
       editorial: editorialTrimmed || null,
       author: authorTrimmed || null,
       category_id: categoryId ? Number(categoryId) : null,
+      ...(priceEquals ? { price_equals: priceEquals } : {}),
       action,
       amount: finalAmount,
     };
@@ -245,6 +258,7 @@ export function Precios() {
       setResult(applied);
       void queryClient.invalidateQueries({ queryKey: ["books"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["price-groups"] });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "No se pudo aplicar la actualización."
@@ -318,6 +332,22 @@ export function Precios() {
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium">Precio actual</span>
+            <select
+              value={priceEquals}
+              onChange={(event) => setPriceEquals(event.target.value)}
+              disabled={!isAdmin}
+              className={inputClass}
+            >
+              <option value="">Todos los precios</option>
+              {priceGroups.map((group) => (
+                <option key={group.price} value={group.price}>
+                  {`${formatARS(group.price)} (${group.count} libros)`}
                 </option>
               ))}
             </select>
