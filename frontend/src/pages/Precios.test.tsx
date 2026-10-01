@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as booksApi from "../api/books";
@@ -19,6 +19,7 @@ vi.mock("../api/categories", () => ({
 vi.mock("../api/import", () => ({
   bulkPreview: vi.fn(),
   bulkApply: vi.fn(),
+  listPriceGroups: vi.fn(),
 }));
 
 function renderPrecios(role = "admin") {
@@ -82,6 +83,10 @@ describe("Precios", () => {
       amount: "-10",
       affected: 2,
     });
+    vi.mocked(importApi.listPriceGroups).mockResolvedValue([
+      { price: "10000.00", count: 5 },
+      { price: "25000.00", count: 14 },
+    ]);
   });
 
   it("renders the price adjustment form with editorial suggestions", async () => {
@@ -210,10 +215,11 @@ describe("Precios", () => {
           node?.textContent === "Se verán afectados 1 libro(s)."
       )
     ).toBeInTheDocument();
-    expect(screen.getByText("Precio actual")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Precio actual" })).toBeInTheDocument();
     expect(screen.getByText("Precio nuevo")).toBeInTheDocument();
-    expect(screen.getByText(/\$\s*10\.000,00/)).toBeInTheDocument();
-    expect(screen.getByText(/\$\s*9\.000,00/)).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText(/\$\s*10\.000,00/)).toBeInTheDocument();
+    expect(within(table).getByText(/\$\s*9\.000,00/)).toBeInTheDocument();
   });
 
   it("shows a friendly message when no books match and disables apply", async () => {
@@ -374,5 +380,64 @@ describe("Precios", () => {
     await waitFor(() => {
       expect(screen.queryByText("Libro 101")).not.toBeInTheDocument();
     });
+  });
+
+  it("renders the price groups with formatted label and count", async () => {
+    renderPrecios();
+    const select = await screen.findByLabelText("Precio actual");
+    expect(select).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("option", { name: /\$\s*25\.000,00 \(14 libros\)/ })
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("option", { name: /\$\s*10\.000,00 \(5 libros\)/ })
+    ).toBeInTheDocument();
+  });
+
+  it("sends price_equals in the preview request when a price is selected", async () => {
+    const user = userEvent.setup();
+    renderPrecios();
+    const select = await screen.findByLabelText("Precio actual");
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /25\.000/ })).toBeInTheDocument();
+    });
+    await user.selectOptions(select, "25000.00");
+    await user.type(screen.getByLabelText(/Monto/), "10");
+    await user.click(screen.getByRole("button", { name: "Previsualizar" }));
+
+    expect(importApi.bulkPreview).toHaveBeenCalledWith(
+      expect.objectContaining({ price_equals: "25000.00" })
+    );
+  });
+
+  it("allows preview with only a price selected, no editorial or author", async () => {
+    const user = userEvent.setup();
+    renderPrecios();
+    const select = await screen.findByLabelText("Precio actual");
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /25\.000/ })).toBeInTheDocument();
+    });
+    await user.selectOptions(select, "25000.00");
+    await user.type(screen.getByLabelText(/Monto/), "10");
+    await user.click(screen.getByRole("button", { name: "Previsualizar" }));
+
+    expect(importApi.bulkPreview).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText("Proporcione editorial o autor.")
+    ).not.toBeInTheDocument();
+  });
+
+  it("omits price_equals when no price is selected", async () => {
+    const user = userEvent.setup();
+    renderPrecios();
+    await user.type(screen.getByLabelText(/Editorial/), "Sudamericana");
+    await user.type(screen.getByLabelText(/Monto/), "10");
+    await user.click(screen.getByRole("button", { name: "Previsualizar" }));
+
+    expect(importApi.bulkPreview).toHaveBeenCalledWith(
+      expect.not.objectContaining({ price_equals: expect.anything() })
+    );
   });
 });

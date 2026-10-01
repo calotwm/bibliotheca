@@ -3,6 +3,7 @@ import type {
   BulkPreview,
   ImportApplyResult,
   ImportPreview,
+  PriceGroup,
 } from "../lib/types";
 import { apiFetch } from "./client";
 
@@ -12,8 +13,13 @@ export interface BulkPayload {
   editorial: string | null;
   author?: string | null;
   category_id?: number | null;
+  price_equals?: string | null;
   action: BulkAction;
   amount: number;
+}
+
+export function listPriceGroups(): Promise<PriceGroup[]> {
+  return apiFetch<PriceGroup[]>("/editorial-bulk-update/price-groups");
 }
 
 export function uploadPreview(file: File): Promise<ImportPreview> {

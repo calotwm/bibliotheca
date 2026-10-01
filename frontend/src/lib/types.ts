@@ -338,3 +338,8 @@ export interface BulkApplyResult {
   amount: string;
   affected: number;
 }
+
+export interface PriceGroup {
+  price: string;
+  count: number;
+}
