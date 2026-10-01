@@ -18,10 +18,16 @@ from ..schemas.editorial import (
     BulkApplyResponse,
     BulkPreviewResponse,
     BulkUpdateRequest,
+    PriceGroup,
 )
 from ..security.deps import require_admin
 from ..security.limiter import limiter
-from ..services.editorial_service import BulkUpdateError, apply_bulk, preview_bulk
+from ..services.editorial_service import (
+    BulkUpdateError,
+    apply_bulk,
+    preview_bulk,
+    price_groups as _price_groups_service,
+)
 
 router = APIRouter(prefix="/api", tags=["editorial-bulk"])
 
@@ -33,6 +39,7 @@ def _apply_body(body: BulkUpdateRequest) -> dict:
         "editorial": body.editorial,
         "author": body.author,
         "category_id": body.category_id,
+        "price_equals": body.price_equals,
         "action": body.action,
         "amount": body.amount,
     }
@@ -89,6 +96,15 @@ async def bulk_apply(
         amount=body.amount,
         affected=result["affected"],
     )
+
+
+@router.get("/editorial-bulk-update/price-groups", response_model=list[PriceGroup])
+async def bulk_price_groups(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    admin: Annotated[User, Depends(require_admin)],
+) -> list[PriceGroup]:
+    """List every distinct current price among active books with its count."""
+    return await _price_groups_service(session)
 
 
 @router.post("/books/bulk-update", response_model=BulkApplyResponse)

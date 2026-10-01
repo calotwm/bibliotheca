@@ -367,3 +367,97 @@ async def test_bulk_forbidden_for_cashier(auth_headers, session, client):
     for endpoint in BULK_ENDPOINTS:
         response = await client.post(endpoint, json=payload, headers=headers)
         assert response.status_code == 403, endpoint
+
+
+async def test_bulk_preview_price_equals_only(auth_headers, session, client):
+    await _seed_book(session, title="A", editorial="Sudamericana", price="25000.00")
+    await _seed_book(session, title="B", editorial="Emece", price="25000.00")
+    await _seed_book(session, title="C", editorial="Sudamericana", price="30000.00")
+    response = await client.post(
+        "/api/editorial-bulk-update/preview",
+        json={"price_equals": "25000.00", "action": "price_set", "amount": "26000.00"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["affected"] == 2
+    titles = {row["title"] for row in data["rows"]}
+    assert titles == {"A", "B"}
+
+
+async def test_bulk_price_equals_combined_with_editorial(auth_headers, session, client):
+    await _seed_book(session, title="A", editorial="Sudamericana", price="25000.00")
+    await _seed_book(session, title="B", editorial="Emece", price="25000.00")
+    response = await client.post(
+        "/api/editorial-bulk-update/preview",
+        json={
+            "editorial": "Sudamericana",
+            "price_equals": "25000.00",
+            "action": "price_set",
+            "amount": "26000.00",
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["affected"] == 1
+    assert data["rows"][0]["title"] == "A"
+
+
+async def test_bulk_apply_price_equals_only_changes_matching_books(
+    auth_headers, session, client
+):
+    a_id = await _seed_book(session, title="A", editorial="Sudamericana", price="25000.00")
+    b_id = await _seed_book(session, title="B", editorial="Emece", price="30000.00")
+    response = await client.post(
+        "/api/editorial-bulk-update/apply",
+        json={"price_equals": "25000.00", "action": "price_percent", "amount": "10"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["affected"] == 1
+    books = await _books_by_title(session)
+    assert books["A"].price == Decimal("27500.00")
+    assert books["B"].price == Decimal("30000.00")
+
+
+async def test_bulk_price_equals_alone_accepted_as_filter(auth_headers, session, client):
+    await _seed_book(session, title="A", editorial="Sudamericana", price="25000.00")
+    response = await client.post(
+        "/api/editorial-bulk-update/preview",
+        json={"price_equals": "25000.00", "action": "price_set", "amount": "26000.00"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+async def test_bulk_price_equals_invalid_rejected(auth_headers, session, client):
+    response = await client.post(
+        "/api/editorial-bulk-update/preview",
+        json={"price_equals": "-1", "action": "price_set", "amount": "26000.00"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+
+
+async def test_price_groups_returns_counts_sorted(auth_headers, session, client):
+    await _seed_book(session, title="A", editorial="Sudamericana", price="30000.00")
+    await _seed_book(session, title="B", editorial="Emece", price="25000.00")
+    await _seed_book(session, title="C", editorial="Emece", price="25000.00")
+    response = await client.get(
+        "/api/editorial-bulk-update/price-groups", headers=auth_headers
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data == [
+        {"price": "25000.00", "count": 2},
+        {"price": "30000.00", "count": 1},
+    ]
+
+
+async def test_price_groups_requires_admin(session, client):
+    headers = await _cashier_headers(session)
+    response = await client.get(
+        "/api/editorial-bulk-update/price-groups", headers=headers
+    )
+    assert response.status_code == 403

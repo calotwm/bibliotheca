@@ -14,6 +14,7 @@ class BulkUpdateRequest(BaseModel):
     editorial: str | None = Field(default=None, max_length=255)
     author: str | None = Field(default=None, max_length=255)
     category_id: int | None = None
+    price_equals: Decimal | None = Field(default=None, gt=0)
     action: BulkAction
     amount: Decimal
 
@@ -23,9 +24,16 @@ class BulkUpdateRequest(BaseModel):
         author = self.author.strip() if self.author else ""
         if editorial and author:
             raise ValueError("Proporcione editorial o autor, no ambos.")
-        if not editorial and not author:
+        if not editorial and not author and self.price_equals is None:
             raise ValueError("Proporcione editorial o autor.")
         return self
+
+
+class PriceGroup(BaseModel):
+    """A distinct current price and how many active books have it."""
+
+    price: Decimal
+    count: int
 
 
 class BulkPreviewRow(BaseModel):
