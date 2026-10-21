@@ -70,6 +70,16 @@ function salesDetailColumns(
         : sellerLabelFromShares(row.juli_share, row.cande_share)
     ) },
     { key: "payment_method", header: "Método de pago", render: (row) => row.payment_method ?? "—" },
+    { key: "customer_name", header: "Cliente", render: (row) => (
+      row.customer_name ? (
+        <span>
+          {row.customer_name}
+          {row.customer_cuit && (
+            <span className="block text-xs text-ink-soft">CUIT {row.customer_cuit}</span>
+          )}
+        </span>
+      ) : "—"
+    ) },
     {
       key: "actions",
       header: "Acciones",
@@ -182,8 +192,8 @@ export function Reportes() {
         : defaultSharesFromObservaciones(row.observaciones);
     setEditFields({
       payment_method: row.payment_method ?? "",
-      customer_name: "",
-      customer_cuit: "",
+      customer_name: row.customer_name ?? "",
+      customer_cuit: row.customer_cuit ?? "",
       date: row.date ?? "",
       juli_share: String(shares.juli),
       cande_share: String(shares.cande),

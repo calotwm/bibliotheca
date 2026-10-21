@@ -197,6 +197,8 @@ async def sales_detail(
                 func.coalesce(SaleItem.observaciones, Book.observaciones),
                 Sale.juli_share,
                 Sale.cande_share,
+                Sale.customer_name,
+                Sale.customer_cuit,
             )
             .join(SaleItem, SaleItem.sale_id == Sale.id)
             .join(Book, Book.id == SaleItem.book_id)
@@ -223,6 +225,8 @@ async def sales_detail(
             observaciones=row[12],
             juli_share=row[13],
             cande_share=row[14],
+            customer_name=row[15],
+            customer_cuit=row[16],
         )
         for row in rows
     ]

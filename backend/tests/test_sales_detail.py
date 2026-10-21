@@ -59,12 +59,16 @@ async def _seed_sale(
     quantity=1,
     when=None,
     payment_method=None,
+    customer_name=None,
+    customer_cuit=None,
 ) -> Sale:
     sale = await create_sale(
         session,
         cashier=await _admin(session),
         items=[SaleItemCreate(book_id=book_id, quantity=quantity)],
         payment_method=payment_method,
+        customer_name=customer_name,
+        customer_cuit=customer_cuit,
     )
     if when is not None:
         sale.date = when
@@ -132,6 +136,19 @@ async def test_sales_detail_returns_expected_columns_and_orders_by_date(
     assert old_row["subtotal"] == "20.00"
     assert old_row["payment_method"] == "Efectivo"
     assert old_row["date"] == "2026-08-10"
+
+
+async def test_sales_detail_includes_customer(auth_headers, session, client):
+    book_id = await _seed_book(session)
+    await _seed_sale(
+        session, book_id, customer_name="Ana Pérez", customer_cuit="20-12345678-9"
+    )
+    await _seed_sale(session, book_id)
+
+    response = await client.get("/api/reports/sales-detail", headers=auth_headers)
+    rows = response.json()
+    by_customer = {row["customer_name"]: row["customer_cuit"] for row in rows}
+    assert by_customer == {"Ana Pérez": "20-12345678-9", None: None}
 
 
 async def test_sales_detail_older_sale_rows_share_the_same_stock(
