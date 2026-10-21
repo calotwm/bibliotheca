@@ -92,6 +92,8 @@ class SalesDetailRow(BaseModel):
     subtotal: Decimal
     stock: int
     payment_method: str | None = None
+    customer_name: str | None = None
+    customer_cuit: str | None = None
     observaciones: str | None = None
     juli_share: Decimal | None = None
     cande_share: Decimal | None = None

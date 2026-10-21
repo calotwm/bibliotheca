@@ -206,6 +206,8 @@ export interface SalesDetailRow {
   subtotal: string;
   stock: number;
   payment_method: string | null;
+  customer_name: string | null;
+  customer_cuit: string | null;
   observaciones: string | null;
   juli_share: string | null;
   cande_share: string | null;
