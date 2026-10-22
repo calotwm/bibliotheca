@@ -35,6 +35,8 @@ const DETAIL_ROW: SalesDetailRow = {
   subtotal: "12000.00",
   stock: 4,
   payment_method: null,
+  customer_name: null,
+  customer_cuit: null,
   observaciones: null,
   juli_share: null,
   cande_share: null,
