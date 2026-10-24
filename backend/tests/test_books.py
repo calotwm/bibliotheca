@@ -576,3 +576,26 @@ async def test_list_books_sort_by_observaciones_in_invalid_list_returns_400(
     response = await client.get("/api/books?sort_by=garbage", headers=auth_headers)
     assert response.status_code == 400
     assert "observaciones" in response.json()["detail"]
+
+
+async def test_list_books_sort_price_pagination_is_stable_with_ties(
+    auth_headers, session, client
+):
+    """Many books share a price: paging must return each book exactly once."""
+    cid = await _category_id(session)
+    for i in range(25):
+        await client.post(
+            "/api/books",
+            json=_book_payload(cid, title=f"Libro {i:02d}", price="10.00" if i % 2 else "5.00"),
+            headers=auth_headers,
+        )
+    seen: list[int] = []
+    for page in (1, 2, 3):
+        response = await client.get(
+            f"/api/books?sort_by=price&sort_dir=desc&page={page}&page_size=10",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        seen.extend(book["id"] for book in response.json())
+    assert len(seen) == 25
+    assert len(set(seen)) == 25

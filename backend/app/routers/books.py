@@ -162,8 +162,10 @@ async def list_books(
         order_col = _sort_expression(sort_by)
     order_col = order_col.desc() if sort_dir == "desc" else order_col.asc()
 
+    # Book.id breaks ties so offset pagination is stable across pages
+    # (e.g. many books sharing the same price).
     query = (
-        query.order_by(order_col)
+        query.order_by(order_col, Book.id.asc())
         .offset(max(0, page - 1) * page_size)
         .limit(page_size)
     )
