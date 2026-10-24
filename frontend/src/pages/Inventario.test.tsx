@@ -339,4 +339,32 @@ describe("Inventario", () => {
       expect(header.className).toMatch(/\bw-\[[0-9.]+%\]/);
     }
   });
+
+  it("appends every page on Cargar más until the catalog is exhausted", async () => {
+    const makePage = (start: number, count: number) =>
+      Array.from({ length: count }, (_, i) => ({
+        ...sampleBook,
+        id: start + i,
+        title: `Libro ${start + i}`,
+      }));
+    vi.mocked(booksApi.listBooks).mockImplementation(async (params) => {
+      if (params?.page === 1) return makePage(1, 100);
+      if (params?.page === 2) return makePage(101, 100);
+      return makePage(201, 5);
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("Libro 100");
+    await user.click(screen.getByRole("button", { name: "Cargar más" }));
+    await screen.findByText("Libro 200");
+    // The first page must still be visible: pages accumulate, not replace.
+    expect(screen.getByText("Libro 1")).toBeInTheDocument();
+
+    // Before the fix the button vanished after the second page.
+    await user.click(await screen.findByRole("button", { name: "Cargar más" }));
+    await screen.findByText("Libro 205");
+    expect(screen.getAllByRole("row")).toHaveLength(206);
+    expect(screen.queryByRole("button", { name: "Cargar más" })).not.toBeInTheDocument();
+  }, 20000);
 });

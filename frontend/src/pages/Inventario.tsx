@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import * as booksApi from "../api/books";
@@ -121,7 +121,6 @@ export function Inventario() {
   const [editorial, setEditorial] = useState("");
   const [debouncedEditorial, setDebouncedEditorial] = useState("");
   const [seller, setSeller] = useState("");
-  const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [editing, setEditing] = useState<Book | null>(null);
@@ -149,7 +148,15 @@ export function Inventario() {
     queryFn: listCategories,
   });
 
-  const { data: books = [], isLoading, isError, error } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: [
       "books",
       debouncedTitle,
@@ -160,9 +167,8 @@ export function Inventario() {
       seller,
       sortBy,
       sortDir,
-      page,
     ],
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       booksApi.listBooks({
         title: debouncedTitle || undefined,
         category_id: categoryId ? Number(categoryId) : null,
@@ -172,10 +178,15 @@ export function Inventario() {
         seller: seller || null,
         sort_by: sortBy || null,
         sort_dir: sortDir || null,
-        page,
+        page: pageParam,
         page_size: PAGE_SIZE,
       }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === PAGE_SIZE ? allPages.length + 1 : undefined,
   });
+
+  const books = data?.pages.flat() ?? [];
 
   const invalidateCatalog = () => {
     void queryClient.invalidateQueries({ queryKey: ["books"] });
@@ -204,8 +215,6 @@ export function Inventario() {
     },
   });
 
-  const resetPageOnFilterChange = () => setPage(1);
-
   const handleSort = (key: string) => {
     if (sortBy === key) {
       setSortDir((current) => (current === "asc" ? "desc" : "asc"));
@@ -213,7 +222,6 @@ export function Inventario() {
       setSortBy(key);
       setSortDir("asc");
     }
-    resetPageOnFilterChange();
   };
 
   const inputClass =
@@ -249,7 +257,6 @@ export function Inventario() {
               value={title}
               onChange={(event) => {
                 setTitle(event.target.value);
-                resetPageOnFilterChange();
               }}
               placeholder="Buscar por título…"
               className={`${inputClass} pl-9`}
@@ -266,7 +273,6 @@ export function Inventario() {
             value={author}
             onChange={(event) => {
               setAuthor(event.target.value);
-              resetPageOnFilterChange();
             }}
             placeholder="Autor"
             className={inputClass}
@@ -282,7 +288,6 @@ export function Inventario() {
             value={editorial}
             onChange={(event) => {
               setEditorial(event.target.value);
-              resetPageOnFilterChange();
             }}
             placeholder="Editorial"
             className={inputClass}
@@ -297,7 +302,6 @@ export function Inventario() {
             value={categoryId}
             onChange={(event) => {
               setCategoryId(event.target.value);
-              resetPageOnFilterChange();
             }}
             className={inputClass}
           >
@@ -318,7 +322,6 @@ export function Inventario() {
             value={seller}
             onChange={(event) => {
               setSeller(event.target.value);
-              resetPageOnFilterChange();
             }}
             className={inputClass}
           >
@@ -338,7 +341,6 @@ export function Inventario() {
             value={stockStatus}
             onChange={(event) => {
               setStockStatus(event.target.value);
-              resetPageOnFilterChange();
             }}
             className={inputClass}
           >
@@ -387,14 +389,15 @@ export function Inventario() {
             onSort={handleSort}
             fixedLayout
           />
-          {books.length === page * PAGE_SIZE && (
+          {hasNextPage && (
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => setPage((current) => current + 1)}
+                onClick={() => void fetchNextPage()}
+                disabled={isFetchingNextPage}
                 className="min-h-10 rounded-sm border border-navy/20 bg-cream px-4 py-2 text-sm font-medium text-navy hover:bg-navy/5"
               >
-                Cargar más
+                {isFetchingNextPage ? "Cargando…" : "Cargar más"}
               </button>
             </div>
           )}
