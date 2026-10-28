@@ -96,3 +96,22 @@ async def test_login_rate_limited_429(client, session):
         )
     assert response.status_code == 429
     assert "retry-after" in response.headers
+
+
+async def test_login_rate_limit_keys_on_x_real_ip(client, session):
+    await _seed_user(session)
+    response = None
+    for i in range(6):
+        response = await client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "wrong"},
+            headers={"X-Real-IP": "203.0.113.7", "X-Forwarded-For": f"10.0.0.{i}"},
+        )
+    assert response.status_code == 429
+
+    other = await client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": "admin"},
+        headers={"X-Real-IP": "198.51.100.1"},
+    )
+    assert other.status_code == 200
